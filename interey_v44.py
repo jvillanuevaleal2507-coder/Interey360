@@ -151,54 +151,82 @@ st.markdown("""
 @media (max-width:760px){.exec-insights-grid{grid-template-columns:1fr;}}
 
 
-/* Executive view selector */
-.view-selector-card{
+/* Executive navigation selector */
+.exec-nav-wrap{
     background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
     border:1px solid rgba(18,62,112,.14);
     border-radius:18px;
-    padding:14px 18px 10px 18px;
-    margin:12px 0 16px 0;
+    padding:10px 12px;
+    margin:10px 0 16px 0;
     box-shadow:0 8px 22px rgba(15,23,42,.05);
 }
-.view-selector-title{font-size:1.05rem;font-weight:900;color:var(--interey-blue-2);margin-bottom:2px;}
-.view-selector-sub{font-size:.80rem;color:#64748B;margin-bottom:8px;}
-div[role="radiogroup"]{
-    gap:10px;
-}
 
-div[role="radiogroup"] label{
-    background:#F8FAFC;
+/* Streamlit segmented control / pills */
+div[data-testid="stSegmentedControl"]{
+    background:#FFFFFF;
     border:1px solid #D8E2EC;
     border-radius:999px;
-    padding:10px 18px;
-    margin-right:8px;
-    box-shadow:0 3px 10px rgba(15,23,42,.04);
-    cursor:pointer;
+    padding:5px;
+    width:fit-content;
+    box-shadow:0 6px 18px rgba(15,23,42,.05);
 }
-
-div[role="radiogroup"] label p{
+div[data-testid="stSegmentedControl"] button{
+    border-radius:999px !important;
+    border:none !important;
     color:var(--interey-blue-2) !important;
-    font-weight:800 !important;
+    font-weight:850 !important;
+    padding:8px 15px !important;
 }
-
-div[role="radiogroup"] label:hover{
-    background:#EEF4FB;
-    border-color:var(--interey-blue);
-    transform:translateY(-1px);
-    transition:.15s ease;
+div[data-testid="stSegmentedControl"] button:hover{
+    background:#EEF4FB !important;
+    color:var(--interey-blue) !important;
 }
-
-div[role="radiogroup"] label:has(input:checked){
-    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%);
-    border-color:var(--interey-blue-2);
-    box-shadow:0 8px 18px rgba(18,62,112,.20);
+div[data-testid="stSegmentedControl"] button[aria-pressed="true"]{
+    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%) !important;
+    color:#FFFFFF !important;
+    box-shadow:0 8px 18px rgba(18,62,112,.22) !important;
 }
-
-div[role="radiogroup"] label:has(input:checked) p{
+div[data-testid="stSegmentedControl"] button[aria-pressed="true"] p,
+div[data-testid="stSegmentedControl"] button[aria-pressed="true"] span{
     color:#FFFFFF !important;
     font-weight:900 !important;
 }
 
+/* Fallback: st.radio styled as premium pills */
+div[role="radiogroup"]{
+    gap:10px;
+}
+div[role="radiogroup"] label{
+    background:#F8FAFC !important;
+    border:1px solid #D8E2EC !important;
+    border-radius:999px !important;
+    padding:10px 18px !important;
+    margin-right:8px !important;
+    box-shadow:0 3px 10px rgba(15,23,42,.04) !important;
+}
+div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p,
+div[role="radiogroup"] label p,
+div[role="radiogroup"] label span{
+    color:var(--interey-blue-2) !important;
+    font-weight:800 !important;
+}
+div[role="radiogroup"] label:hover{
+    background:#EEF4FB !important;
+    border-color:var(--interey-blue) !important;
+    transform:translateY(-1px);
+    transition:.15s ease;
+}
+div[role="radiogroup"] label:has(input:checked){
+    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%) !important;
+    border-color:var(--interey-blue-2) !important;
+    box-shadow:0 8px 18px rgba(18,62,112,.20) !important;
+}
+div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownContainer"] p,
+div[role="radiogroup"] label:has(input:checked) p,
+div[role="radiogroup"] label:has(input:checked) span{
+    color:#FFFFFF !important;
+    font-weight:900 !important;
+}
 div[role="radiogroup"] input[type="radio"]{
     display:none !important;
 }
@@ -1158,22 +1186,34 @@ with hc3:
 st.markdown('</div>', unsafe_allow_html=True)
 radar_interey(consol_fc, proj_fc, store_fc)
 
-# ---------- VISTA EJECUTIVA DINÁMICA ----------
-view_icons = {
-    "Resumen Ejecutivo": "🏠 Resumen Ejecutivo",
-    "Consolidado": "📊 Consolidado",
-    "Proyectos": "🏗️ Proyectos",
-    "Tienda": "🏪 Tienda",
+# ---------- NAVEGACIÓN EJECUTIVA ----------
+view_options = ["🏠 Resumen Ejecutivo", "📊 Consolidado", "🏗️ Proyectos", "🏪 Tienda"]
+view_map = {
+    "🏠 Resumen Ejecutivo": "Resumen Ejecutivo",
+    "📊 Consolidado": "Consolidado",
+    "🏗️ Proyectos": "Proyectos",
+    "🏪 Tienda": "Tienda",
 }
 
-view_selected = st.radio(
-    "Selecciona vista",
-    ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda"],
-    horizontal=True,
-    label_visibility="collapsed",
-    key="vista_ejecutiva",
-    format_func=lambda x: view_icons.get(x, x)
-)
+st.markdown('<div class="exec-nav-wrap">', unsafe_allow_html=True)
+if hasattr(st, "segmented_control"):
+    view_display = st.segmented_control(
+        "Selecciona vista",
+        view_options,
+        default="🏠 Resumen Ejecutivo",
+        label_visibility="collapsed",
+        key="vista_ejecutiva_segmented"
+    )
+else:
+    view_display = st.radio(
+        "Selecciona vista",
+        view_options,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="vista_ejecutiva_radio"
+    )
+st.markdown('</div>', unsafe_allow_html=True)
+view_selected = view_map.get(view_display, "Resumen Ejecutivo")
 
 if view_selected == "Resumen Ejecutivo":
     render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
@@ -1416,4 +1456,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Los gastos se leen automáticamente desde el archivo administrativo, separados en **Proyectos** y **Tienda**.
     """)
 
-st.caption("Versión v45 · Selector ejecutivo premium · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
+st.caption("Versión v46 · Navegación ejecutiva premium · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
