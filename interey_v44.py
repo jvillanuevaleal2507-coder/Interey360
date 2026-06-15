@@ -162,22 +162,46 @@ st.markdown("""
 }
 .view-selector-title{font-size:1.05rem;font-weight:900;color:var(--interey-blue-2);margin-bottom:2px;}
 .view-selector-sub{font-size:.80rem;color:#64748B;margin-bottom:8px;}
+div[role="radiogroup"]{
+    gap:10px;
+}
+
 div[role="radiogroup"] label{
-    background:#FFFFFF;
+    background:#F8FAFC;
     border:1px solid #D8E2EC;
     border-radius:999px;
-    padding:8px 13px;
+    padding:10px 18px;
     margin-right:8px;
     box-shadow:0 3px 10px rgba(15,23,42,.04);
+    cursor:pointer;
 }
-div[role="radiogroup"] label:hover{border-color:var(--interey-blue); transform: translateY(-1px); transition:.15s ease;}
+
+div[role="radiogroup"] label p{
+    color:var(--interey-blue-2) !important;
+    font-weight:800 !important;
+}
+
+div[role="radiogroup"] label:hover{
+    background:#EEF4FB;
+    border-color:var(--interey-blue);
+    transform:translateY(-1px);
+    transition:.15s ease;
+}
+
 div[role="radiogroup"] label:has(input:checked){
     background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%);
-    color:#FFFFFF !important;
     border-color:var(--interey-blue-2);
     box-shadow:0 8px 18px rgba(18,62,112,.20);
 }
-div[role="radiogroup"] label:has(input:checked) p{color:#FFFFFF !important; font-weight:900;}
+
+div[role="radiogroup"] label:has(input:checked) p{
+    color:#FFFFFF !important;
+    font-weight:900 !important;
+}
+
+div[role="radiogroup"] input[type="radio"]{
+    display:none !important;
+}
 
 /* Streamlit tabs */
 button[data-baseweb="tab"]{font-weight:700;}
@@ -1135,12 +1159,20 @@ st.markdown('</div>', unsafe_allow_html=True)
 radar_interey(consol_fc, proj_fc, store_fc)
 
 # ---------- VISTA EJECUTIVA DINÁMICA ----------
+view_icons = {
+    "Resumen Ejecutivo": "🏠 Resumen Ejecutivo",
+    "Consolidado": "📊 Consolidado",
+    "Proyectos": "🏗️ Proyectos",
+    "Tienda": "🏪 Tienda",
+}
+
 view_selected = st.radio(
     "Selecciona vista",
     ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda"],
     horizontal=True,
     label_visibility="collapsed",
-    key="vista_ejecutiva"
+    key="vista_ejecutiva",
+    format_func=lambda x: view_icons.get(x, x)
 )
 
 if view_selected == "Resumen Ejecutivo":
@@ -1384,4 +1416,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Los gastos se leen automáticamente desde el archivo administrativo, separados en **Proyectos** y **Tienda**.
     """)
 
-st.caption("Versión v44 · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
+st.caption("Versión v45 · Selector ejecutivo premium · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
