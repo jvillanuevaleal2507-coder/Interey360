@@ -151,84 +151,92 @@ st.markdown("""
 @media (max-width:760px){.exec-insights-grid{grid-template-columns:1fr;}}
 
 
-/* Executive navigation selector */
+/* Executive navigation selector - Premium INTEREY */
 .exec-nav-wrap{
-    background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
-    border:1px solid rgba(18,62,112,.14);
-    border-radius:18px;
-    padding:10px 12px;
-    margin:10px 0 16px 0;
-    box-shadow:0 8px 22px rgba(15,23,42,.05);
+    margin:12px 0 18px 0;
 }
 
-/* Streamlit segmented control / pills */
-div[data-testid="stSegmentedControl"]{
-    background:#FFFFFF;
-    border:1px solid #D8E2EC;
-    border-radius:999px;
-    padding:5px;
-    width:fit-content;
-    box-shadow:0 6px 18px rgba(15,23,42,.05);
-}
-div[data-testid="stSegmentedControl"] button{
-    border-radius:999px !important;
-    border:none !important;
-    color:var(--interey-blue-2) !important;
-    font-weight:850 !important;
-    padding:8px 15px !important;
-}
-div[data-testid="stSegmentedControl"] button:hover{
-    background:#EEF4FB !important;
-    color:var(--interey-blue) !important;
-}
-div[data-testid="stSegmentedControl"] button[aria-pressed="true"]{
-    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%) !important;
-    color:#FFFFFF !important;
-    box-shadow:0 8px 18px rgba(18,62,112,.22) !important;
-}
-div[data-testid="stSegmentedControl"] button[aria-pressed="true"] p,
-div[data-testid="stSegmentedControl"] button[aria-pressed="true"] span{
-    color:#FFFFFF !important;
-    font-weight:900 !important;
-}
-
-/* Fallback: st.radio styled as premium pills */
+/* Navegación principal basada en st.radio, estilizada como tabs premium */
 div[role="radiogroup"]{
-    gap:10px;
+    display:flex !important;
+    flex-wrap:wrap !important;
+    gap:8px !important;
+    width:fit-content !important;
+    background:rgba(255,255,255,.92) !important;
+    border:1px solid rgba(18,62,112,.14) !important;
+    border-radius:22px !important;
+    padding:7px !important;
+    box-shadow:0 10px 24px rgba(15,23,42,.06) !important;
+    backdrop-filter: blur(8px);
 }
+
 div[role="radiogroup"] label{
     background:#F8FAFC !important;
     border:1px solid #D8E2EC !important;
     border-radius:999px !important;
     padding:10px 18px !important;
-    margin-right:8px !important;
-    box-shadow:0 3px 10px rgba(15,23,42,.04) !important;
+    margin:0 !important;
+    min-height:42px !important;
+    box-shadow:0 2px 8px rgba(15,23,42,.035) !important;
+    display:flex !important;
+    align-items:center !important;
+    justify-content:center !important;
+    cursor:pointer !important;
+    transition:all .16s ease !important;
 }
+
+div[role="radiogroup"] label:hover{
+    background:#EEF4FB !important;
+    border-color:rgba(18,62,112,.34) !important;
+    transform:translateY(-1px);
+    box-shadow:0 6px 14px rgba(15,23,42,.08) !important;
+}
+
+/* Oculta el punto/radio nativo */
+div[role="radiogroup"] input[type="radio"],
+div[role="radiogroup"] [data-testid="stRadio"] input{
+    display:none !important;
+    opacity:0 !important;
+    width:0 !important;
+    height:0 !important;
+}
+
+/* Texto inactivo */
 div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p,
 div[role="radiogroup"] label p,
 div[role="radiogroup"] label span{
     color:var(--interey-blue-2) !important;
-    font-weight:800 !important;
+    font-weight:850 !important;
+    font-size:.88rem !important;
+    line-height:1.05 !important;
+    margin:0 !important;
+    white-space:nowrap !important;
 }
-div[role="radiogroup"] label:hover{
-    background:#EEF4FB !important;
-    border-color:var(--interey-blue) !important;
-    transform:translateY(-1px);
-    transition:.15s ease;
-}
+
+/* Activo */
 div[role="radiogroup"] label:has(input:checked){
     background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%) !important;
     border-color:var(--interey-blue-2) !important;
-    box-shadow:0 8px 18px rgba(18,62,112,.20) !important;
+    box-shadow:0 9px 20px rgba(18,62,112,.24) !important;
 }
+
 div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownContainer"] p,
 div[role="radiogroup"] label:has(input:checked) p,
 div[role="radiogroup"] label:has(input:checked) span{
     color:#FFFFFF !important;
-    font-weight:900 !important;
+    font-weight:950 !important;
 }
-div[role="radiogroup"] input[type="radio"]{
-    display:none !important;
+
+/* Fallback para BaseWeb cuando expone aria-checked */
+div[role="radiogroup"] label[aria-checked="true"]{
+    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%) !important;
+    border-color:var(--interey-blue-2) !important;
+    box-shadow:0 9px 20px rgba(18,62,112,.24) !important;
+}
+div[role="radiogroup"] label[aria-checked="true"] p,
+div[role="radiogroup"] label[aria-checked="true"] span{
+    color:#FFFFFF !important;
+    font-weight:950 !important;
 }
 
 /* Streamlit tabs */
@@ -1196,22 +1204,13 @@ view_map = {
 }
 
 st.markdown('<div class="exec-nav-wrap">', unsafe_allow_html=True)
-if hasattr(st, "segmented_control"):
-    view_display = st.segmented_control(
-        "Selecciona vista",
-        view_options,
-        default="🏠 Resumen Ejecutivo",
-        label_visibility="collapsed",
-        key="vista_ejecutiva_segmented"
-    )
-else:
-    view_display = st.radio(
-        "Selecciona vista",
-        view_options,
-        horizontal=True,
-        label_visibility="collapsed",
-        key="vista_ejecutiva_radio"
-    )
+view_display = st.radio(
+    "Selecciona vista",
+    view_options,
+    horizontal=True,
+    label_visibility="collapsed",
+    key="vista_ejecutiva_radio_premium"
+)
 st.markdown('</div>', unsafe_allow_html=True)
 view_selected = view_map.get(view_display, "Resumen Ejecutivo")
 
@@ -1456,4 +1455,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Los gastos se leen automáticamente desde el archivo administrativo, separados en **Proyectos** y **Tienda**.
     """)
 
-st.caption("Versión v46 · Navegación ejecutiva premium · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
+st.caption("Versión v46 corregida · Navegación ejecutiva premium · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
