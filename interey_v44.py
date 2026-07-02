@@ -1482,16 +1482,49 @@ elif view_selected == "Proyectos":
         detail["Meta_Mensual"] = project_monthly_target
         detail["Diferencia_Meta_MXN"] = detail["Ventas_MXN"] - detail["Meta_Mensual"]
         detail["Estado"] = detail["Cumplimiento_Pct"].apply(lambda x: "Cumplió" if pd.notna(x) and x >= 100 else ("Cerca" if pd.notna(x) and x >= 80 else "No cumplió"))
-        cdet_g1, cdet_g2 = st.columns(2)
-        with cdet_g1:
-            fig_focus = px.line(detail, x="Mes_Num", y="Ventas_MXN", markers=True, title=f"Ventas mensuales · {focus}")
-            fig_focus.update_layout(xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER))
-            fig_focus.add_hline(y=project_monthly_target, line_dash="dash", line_color="#475569")
+
+        # Comparativo histórico por ingeniero: reemplaza la gráfica de cumplimiento mensual.
+        # La lectura ejecutiva ahora muestra ventas mensuales por año para el promotor seleccionado.
+        focus_history = performance_base[performance_base["Promotor"] == focus].copy()
+        focus_history = focus_history[focus_history["Año"].isin(compare_years)].copy()
+        focus_monthly = (
+            focus_history.groupby(["Año", "Mes_Num"], as_index=False)
+            .agg(Ventas_MXN=("Ventas_MXN", "sum"))
+            .sort_values(["Año", "Mes_Num"])
+        )
+
+        st.markdown('<div class="section-title">Evolución histórica de ventas por ingeniero</div>', unsafe_allow_html=True)
+        if not focus_monthly.empty:
+            ytd_selected = focus_monthly[(focus_monthly["Año"] == selected_year) & (focus_monthly["Mes_Num"].isin(months_ytd))]["Ventas_MXN"].sum()
+            prev_year = selected_year - 1
+            ytd_prev = focus_monthly[(focus_monthly["Año"] == prev_year) & (focus_monthly["Mes_Num"].isin(months_ytd))]["Ventas_MXN"].sum()
+            delta_prev = yoy(ytd_selected, ytd_prev)
+            if delta_prev is None:
+                comparison_msg = f"Comparativo histórico de {focus}: no hay base suficiente para comparar {selected_year} vs {prev_year}."
+            else:
+                comparison_msg = f"{focus}: ventas YTD {selected_year} {fmt_money(ytd_selected)} vs {prev_year} {fmt_money(ytd_prev)} · variación {fmt_pct(delta_prev)}."
+            trend_note(comparison_msg)
+
+            fig_focus = px.line(
+                focus_monthly,
+                x="Mes_Num",
+                y="Ventas_MXN",
+                color="Año",
+                markers=True,
+                title=f"Ventas mensuales comparativas · {focus}",
+                labels={"Mes_Num": "Mes", "Ventas_MXN": "Ventas MXN", "Año": "Año"},
+            )
+            fig_focus.update_layout(
+                xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER),
+                legend_title_text="Año",
+                height=430,
+                margin=dict(l=20, r=20, t=60, b=40),
+            )
+            fig_focus.add_hline(y=project_monthly_target, line_dash="dash", line_color="#475569", annotation_text="Meta mensual", annotation_position="top right")
             st.plotly_chart(fig_focus, use_container_width=True)
-        with cdet_g2:
-            fig_focus2 = px.bar(detail, x="Mes", y="Cumplimiento_Pct", title=f"Cumplimiento mensual · {focus}")
-            fig_focus2.add_hline(y=100, line_dash="dash", line_color="#475569")
-            st.plotly_chart(fig_focus2, use_container_width=True)
+        else:
+            st.info("No hay histórico suficiente para comparar ventas mensuales del ingeniero seleccionado.")
+
         show_detail = detail[["Mes","Ventas_MXN","Utilidad_Bruta_MXN","Meta_Mensual","Diferencia_Meta_MXN","Cumplimiento_Pct","Estado"]].copy()
         premium_simple_table(
             show_detail,
@@ -1562,4 +1595,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Los gastos se leen automáticamente desde el archivo administrativo, separados en **Proyectos** y **Tienda**.
     """)
 
-st.caption("Versión v46 corregida · Navegación ejecutiva premium · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
+st.caption("Versión v49 · Comparativo histórico por ingeniero · Navegación ejecutiva premium · Radar INTEREY 3.0.")
