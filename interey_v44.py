@@ -312,8 +312,9 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 MONTHS_ES = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
 MONTH_ORDER = [MONTHS_ES[i] for i in range(1,13)]
 MONTHS_FULL_TO_NUM = {"ENERO":1,"FEBRERO":2,"MARZO":3,"ABRIL":4,"MAYO":5,"JUNIO":6,"JULIO":7,"AGOSTO":8,"SEPTIEMBRE":9,"SETIEMBRE":9,"OCTUBRE":10,"NOVIEMBRE":11,"DICIEMBRE":12}
-CUTOFF_DATE = pd.Timestamp("2026-05-31")
 START_DATE = pd.Timestamp("2024-01-01")
+# Corte automático: el dashboard toma todos los registros disponibles desde START_DATE.
+# Ya no se requiere actualizar manualmente CUTOFF_DATE cada mes.
 VALID_YEARS = [2024, 2025, 2026]
 PROJECT_TARGETS = {2024: 500000, 2025: 700000, 2026: 750000}
 STORE_TARGETS = {2024: 150000, 2025: 250000, 2026: 275000}
@@ -324,6 +325,24 @@ DEFAULT_PROJECT_FILES = ["Proyectos 2024-2026.csv", "Reporte 2024-2026.csv", "Re
 DEFAULT_STORE_FILES = ["Tienda 2024-2026.csv", "reporte 2024-2026.csv"]
 DEFAULT_EXPENSE_FILES = ["VENTAS INTEREY PROYECTOS Y TIENDA 2026.xlsx", "Gastos INTEREY 2026.xlsx", "Gastos 2026.xlsx"]
 
+
+
+
+def fmt_date_es(dt):
+    if dt is None or pd.isna(dt):
+        return "Sin fecha"
+    months_full = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
+    dt = pd.Timestamp(dt)
+    return f"{dt.day:02d} {months_full.get(dt.month, '')} {dt.year}"
+
+def latest_data_date(*dfs):
+    dates = []
+    for df in dfs:
+        if df is not None and not df.empty and "Fecha" in df.columns:
+            d = pd.to_datetime(df["Fecha"], errors="coerce").max()
+            if pd.notna(d):
+                dates.append(d)
+    return max(dates) if dates else None
 
 def fmt_money(x):
     try:
@@ -415,8 +434,9 @@ def load_projects(uploaded_file):
     df["Fecha"] = parse_date_project(df["Fecha"])
     df = add_time_cols(df)
 
-    # Regla de corte: solo 2024 en adelante y hasta 31/mayo/2026
-    df = df[(df["Fecha"] >= START_DATE) & (df["Fecha"] <= CUTOFF_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
+    # Regla de corte automático: solo 2024 en adelante y años válidos.
+    # El mes visible se determina con el último mes disponible en los archivos cargados.
+    df = df[(df["Fecha"] >= START_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
 
     # Nota: Ana Margarita Sahagun y Orlando Martinez SÍ se incluyen en KPIs corporativos.
     # Solo se excluyen en los comparativos de desempeño por ingeniero/promotor.
@@ -461,7 +481,8 @@ def load_store(uploaded_file):
         return pd.DataFrame()
     df["Fecha"] = parse_date_store(df["Fecha"])
     df = add_time_cols(df)
-    df = df[(df["Fecha"] >= START_DATE) & (df["Fecha"] <= CUTOFF_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
+    # Regla de corte automático: solo 2024 en adelante y años válidos.
+    df = df[(df["Fecha"] >= START_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
 
     # TIENDA: solo considerar ventas activas.
     # Regla de negocio: cualquier registro con Status/Estatus cancelado NO debe afectar ventas, utilidad, forecast ni consolidado.
@@ -543,10 +564,24 @@ def closed_months_for_year(df, year):
     return months
 
 
-def ytd_months_for_selected_year(selected_year):
-    if selected_year == 2026:
-        return [1,2,3,4,5]
-    return list(range(1,13))
+def ytd_months_for_selected_year(selected_year, projects_df=None, store_df=None):
+    """
+    Devuelve los meses disponibles del año seleccionado con base en los archivos cargados.
+    Si en 2026 ya existen registros de junio, automáticamente incluirá Ene-Jun.
+    """
+    months = set()
+    for df in [projects_df, store_df]:
+        if df is not None and not df.empty and "Año" in df.columns and "Mes_Num" in df.columns:
+            months.update(
+                df.loc[df["Año"] == selected_year, "Mes_Num"]
+                .dropna()
+                .astype(int)
+                .tolist()
+            )
+    if months:
+        max_month = max(months)
+        return list(range(1, max_month + 1))
+    return list(range(1, 13))
 
 
 def yoy(curr, prev):
@@ -1116,7 +1151,7 @@ years_available = sorted(set(projects.get("Año", pd.Series(dtype=int)).dropna()
 years_available = [y for y in years_available if y in VALID_YEARS]
 selected_year = st.sidebar.selectbox("Año principal", years_available, index=len(years_available)-1)
 compare_years = st.sidebar.multiselect("Años a comparar", years_available, default=years_available)
-months_available = ytd_months_for_selected_year(selected_year)
+months_available = ytd_months_for_selected_year(selected_year, projects, store)
 selected_months = st.sidebar.multiselect("Meses del año principal", list(range(1,13)), default=months_available)
 
 st.sidebar.markdown("## Metas")
@@ -1143,6 +1178,9 @@ projects_year = projects_base[(projects_base["Año"] == selected_year) & (projec
 store_year = store_base[(store_base["Año"] == selected_year) & (store_base["Mes_Num"].isin(selected_months))].copy()
 combined_base = pd.concat([projects_base.assign(Unidad="Proyectos"), store_base.assign(Unidad="Tienda")], ignore_index=True, sort=False)
 combined_year = pd.concat([projects_year.assign(Unidad="Proyectos"), store_year.assign(Unidad="Tienda")], ignore_index=True, sort=False)
+
+data_max_date = latest_data_date(projects_year, store_year)
+data_max_label = fmt_date_es(data_max_date)
 
 proj_fc = forecast_block("Proyectos", projects_year, project_expenses, project_monthly_target, months_ytd, multiplier=engineers)
 store_fc = forecast_block("Tienda", store_year, store_expenses, store_monthly_target, months_ytd, multiplier=1)
@@ -1190,7 +1228,7 @@ with hc2:
     st.markdown('<div class="hero-subtitle">Soluciones en Telecomunicaciones y Seguridad</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="hero-pill"><b>Año principal:</b> {selected_year} &nbsp;|&nbsp; <b>Meses analizados:</b> {months_label}</div>', unsafe_allow_html=True)
 with hc3:
-    st.markdown('<div class="hero-date"><b>Datos actualizados al</b><br><span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">31 Mayo 2026</span><br><span>Corte fijo: 01/ene/2024 al 31/may/2026</span></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="hero-date"><b>Datos actualizados al</b><br><span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">{data_max_label}</span><br><span>Corte automático según archivos cargados</span></div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 radar_interey(consol_fc, proj_fc, store_fc)
 
@@ -1434,7 +1472,7 @@ else:  # Tienda
         st.info("No hay datos de tienda para el filtro actual.")
 
 with st.expander("Auditoría avanzada de datos filtrados"):
-    st.caption("Se muestran datos ya filtrados por fecha: 01/ene/2024 al 31/may/2026.")
+    st.caption("Se muestran datos ya filtrados desde 01/ene/2024 hasta la fecha más reciente encontrada en los archivos cargados.")
     if view_selected == "Proyectos":
         cols = [c for c in ["Id","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Descripcion","Moneda","TC","Tipo_Cambio_Aplicado","Cotizado cliente","Ventas_MXN","Utilidad bruta","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in projects.columns]
         st.dataframe(projects[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
@@ -1447,7 +1485,7 @@ with st.expander("Auditoría avanzada de datos filtrados"):
 
 with st.expander("ℹ️ Información metodológica"):
     st.markdown("""
-    - Corte fijo de información: **01/ene/2024 al 31/may/2026**.
+    - Corte automático: se toma la información disponible desde **01/ene/2024** hasta la fecha más reciente encontrada en los archivos cargados.
     - Proyectos usa **Cotizado cliente** para ventas y **Utilidad bruta** para utilidad.
     - Las operaciones en USD de Proyectos se convierten con **TC real por operación**.
     - Tienda usa **Total** para ventas y **Util $** para utilidad.
