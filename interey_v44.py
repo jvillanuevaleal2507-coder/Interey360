@@ -410,16 +410,64 @@ def find_default_file(names):
             return p
     return None
 
+def merge_uploaded_with_default(uploaded_file, default_names, dedupe_priority=None):
+    """Lee el archivo histórico base y lo combina con el archivo subido.
+
+    Objetivo operativo:
+    - Si el usuario sube un reporte incremental de junio, conserva enero-mayo del archivo base.
+    - Si el usuario sube un reporte completo, elimina duplicados y conserva la versión subida.
+    """
+    frames = []
+    default_path = find_default_file(default_names)
+    if default_path is not None:
+        try:
+            frames.append(pd.read_csv(default_path))
+        except Exception:
+            pass
+    if uploaded_file is not None:
+        try:
+            frames.append(pd.read_csv(uploaded_file))
+        except Exception:
+            pass
+
+    if not frames:
+        return pd.DataFrame()
+
+    df = pd.concat(frames, ignore_index=True, sort=False)
+
+    # Normalizar encabezados por si vienen espacios accidentales.
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Prioridad de deduplicación: identificador si existe; si no, huella operativa.
+    subset = None
+    if dedupe_priority:
+        for candidate in dedupe_priority:
+            cols = [c for c in candidate if c in df.columns]
+            if len(cols) == len(candidate):
+                subset = cols
+                break
+
+    if subset:
+        df = df.drop_duplicates(subset=subset, keep="last")
+    else:
+        df = df.drop_duplicates(keep="last")
+
+    return df.reset_index(drop=True)
+
 
 @st.cache_data
 def load_projects(uploaded_file):
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-    else:
-        p = find_default_file(DEFAULT_PROJECT_FILES)
-        if p is None:
-            return pd.DataFrame()
-        df = pd.read_csv(p)
+    df = merge_uploaded_with_default(
+        uploaded_file,
+        DEFAULT_PROJECT_FILES,
+        dedupe_priority=[
+            ["Id"],
+            ["Fecha", "Promotor", "Cliente", "Descripcion", "Cotizado cliente", "Moneda", "TC"],
+            ["Fecha", "Promotor", "Cliente", "Cotizado cliente", "Utilidad bruta"],
+        ],
+    )
+    if df.empty:
+        return pd.DataFrame()
 
     for col in ["Promotor", "Cliente", "Moneda", "Descripcion"]:
         if col in df.columns:
@@ -461,13 +509,17 @@ def load_projects(uploaded_file):
 
 @st.cache_data
 def load_store(uploaded_file):
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-    else:
-        p = find_default_file(DEFAULT_STORE_FILES)
-        if p is None:
-            return pd.DataFrame()
-        df = pd.read_csv(p)
+    df = merge_uploaded_with_default(
+        uploaded_file,
+        DEFAULT_STORE_FILES,
+        dedupe_priority=[
+            ["Id"],
+            ["Fecha", "Cliente", "Total", "Util $", "Status", "Pago"],
+            ["Fecha", "Cliente", "Total", "Util $"],
+        ],
+    )
+    if df.empty:
+        return pd.DataFrame()
 
     for col in ["Cliente", "Status", "Pago", "Facturado"]:
         if col in df.columns:
@@ -1152,7 +1204,14 @@ years_available = [y for y in years_available if y in VALID_YEARS]
 selected_year = st.sidebar.selectbox("Año principal", years_available, index=len(years_available)-1)
 compare_years = st.sidebar.multiselect("Años a comparar", years_available, default=years_available)
 months_available = ytd_months_for_selected_year(selected_year, projects, store)
-selected_months = st.sidebar.multiselect("Meses del año principal", list(range(1,13)), default=months_available)
+max_month_detected = max(months_available) if months_available else 12
+st.sidebar.caption(f"Meses detectados automáticamente: {', '.join(MONTHS_ES[m] for m in months_available)}")
+selected_months = st.sidebar.multiselect(
+    "Meses del año principal",
+    list(range(1,13)),
+    default=months_available,
+    key=f"meses_auto_{selected_year}_{max_month_detected}"
+)
 
 st.sidebar.markdown("## Metas")
 engineers = st.sidebar.number_input("Ingenieros proyectos considerados", min_value=1, value=ACTIVE_PROJECT_ENGINEERS_FOR_TARGET, step=1)
@@ -1178,6 +1237,16 @@ projects_year = projects_base[(projects_base["Año"] == selected_year) & (projec
 store_year = store_base[(store_base["Año"] == selected_year) & (store_base["Mes_Num"].isin(selected_months))].copy()
 combined_base = pd.concat([projects_base.assign(Unidad="Proyectos"), store_base.assign(Unidad="Tienda")], ignore_index=True, sort=False)
 combined_year = pd.concat([projects_year.assign(Unidad="Proyectos"), store_year.assign(Unidad="Tienda")], ignore_index=True, sort=False)
+
+expected_months_set = set(range(1, max(months_available) + 1)) if months_available else set()
+loaded_months_set = set(combined_year["Mes_Num"].dropna().astype(int).unique().tolist()) if not combined_year.empty else set()
+missing_expected_months = sorted(expected_months_set - loaded_months_set)
+if missing_expected_months and max_month_detected > 1:
+    st.warning(
+        "El dashboard detectó que faltan meses anteriores en los archivos cargados: "
+        + ", ".join(MONTHS_ES[m] for m in missing_expected_months)
+        + ". Si subiste un reporte incremental, conserva también el archivo histórico base en GitHub para mostrar el acumulado correcto."
+    )
 
 data_max_date = latest_data_date(projects_year, store_year)
 data_max_label = fmt_date_es(data_max_date)
