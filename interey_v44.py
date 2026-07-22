@@ -151,93 +151,33 @@ st.markdown("""
 @media (max-width:760px){.exec-insights-grid{grid-template-columns:1fr;}}
 
 
-/* Executive navigation selector - Premium INTEREY */
-.exec-nav-wrap{
-    margin:12px 0 18px 0;
+/* Executive view selector */
+.view-selector-card{
+    background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
+    border:1px solid rgba(18,62,112,.14);
+    border-radius:18px;
+    padding:14px 18px 10px 18px;
+    margin:12px 0 16px 0;
+    box-shadow:0 8px 22px rgba(15,23,42,.05);
 }
-
-/* Navegación principal basada en st.radio, estilizada como tabs premium */
-div[role="radiogroup"]{
-    display:flex !important;
-    flex-wrap:wrap !important;
-    gap:8px !important;
-    width:fit-content !important;
-    background:rgba(255,255,255,.92) !important;
-    border:1px solid rgba(18,62,112,.14) !important;
-    border-radius:22px !important;
-    padding:7px !important;
-    box-shadow:0 10px 24px rgba(15,23,42,.06) !important;
-    backdrop-filter: blur(8px);
-}
-
+.view-selector-title{font-size:1.05rem;font-weight:900;color:var(--interey-blue-2);margin-bottom:2px;}
+.view-selector-sub{font-size:.80rem;color:#64748B;margin-bottom:8px;}
 div[role="radiogroup"] label{
-    background:#F8FAFC !important;
-    border:1px solid #D8E2EC !important;
-    border-radius:999px !important;
-    padding:10px 18px !important;
-    margin:0 !important;
-    min-height:42px !important;
-    box-shadow:0 2px 8px rgba(15,23,42,.035) !important;
-    display:flex !important;
-    align-items:center !important;
-    justify-content:center !important;
-    cursor:pointer !important;
-    transition:all .16s ease !important;
+    background:#FFFFFF;
+    border:1px solid #D8E2EC;
+    border-radius:999px;
+    padding:8px 13px;
+    margin-right:8px;
+    box-shadow:0 3px 10px rgba(15,23,42,.04);
 }
-
-div[role="radiogroup"] label:hover{
-    background:#EEF4FB !important;
-    border-color:rgba(18,62,112,.34) !important;
-    transform:translateY(-1px);
-    box-shadow:0 6px 14px rgba(15,23,42,.08) !important;
-}
-
-/* Oculta el punto/radio nativo */
-div[role="radiogroup"] input[type="radio"],
-div[role="radiogroup"] [data-testid="stRadio"] input{
-    display:none !important;
-    opacity:0 !important;
-    width:0 !important;
-    height:0 !important;
-}
-
-/* Texto inactivo */
-div[role="radiogroup"] label div[data-testid="stMarkdownContainer"] p,
-div[role="radiogroup"] label p,
-div[role="radiogroup"] label span{
-    color:var(--interey-blue-2) !important;
-    font-weight:850 !important;
-    font-size:.88rem !important;
-    line-height:1.05 !important;
-    margin:0 !important;
-    white-space:nowrap !important;
-}
-
-/* Activo */
+div[role="radiogroup"] label:hover{border-color:var(--interey-blue); transform: translateY(-1px); transition:.15s ease;}
 div[role="radiogroup"] label:has(input:checked){
-    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%) !important;
-    border-color:var(--interey-blue-2) !important;
-    box-shadow:0 9px 20px rgba(18,62,112,.24) !important;
-}
-
-div[role="radiogroup"] label:has(input:checked) div[data-testid="stMarkdownContainer"] p,
-div[role="radiogroup"] label:has(input:checked) p,
-div[role="radiogroup"] label:has(input:checked) span{
+    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%);
     color:#FFFFFF !important;
-    font-weight:950 !important;
+    border-color:var(--interey-blue-2);
+    box-shadow:0 8px 18px rgba(18,62,112,.20);
 }
-
-/* Fallback para BaseWeb cuando expone aria-checked */
-div[role="radiogroup"] label[aria-checked="true"]{
-    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%) !important;
-    border-color:var(--interey-blue-2) !important;
-    box-shadow:0 9px 20px rgba(18,62,112,.24) !important;
-}
-div[role="radiogroup"] label[aria-checked="true"] p,
-div[role="radiogroup"] label[aria-checked="true"] span{
-    color:#FFFFFF !important;
-    font-weight:950 !important;
-}
+div[role="radiogroup"] label:has(input:checked) p{color:#FFFFFF !important; font-weight:900;}
 
 /* Streamlit tabs */
 button[data-baseweb="tab"]{font-weight:700;}
@@ -312,9 +252,8 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 MONTHS_ES = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
 MONTH_ORDER = [MONTHS_ES[i] for i in range(1,13)]
 MONTHS_FULL_TO_NUM = {"ENERO":1,"FEBRERO":2,"MARZO":3,"ABRIL":4,"MAYO":5,"JUNIO":6,"JULIO":7,"AGOSTO":8,"SEPTIEMBRE":9,"SETIEMBRE":9,"OCTUBRE":10,"NOVIEMBRE":11,"DICIEMBRE":12}
+CUTOFF_DATE = pd.Timestamp("2026-05-31")
 START_DATE = pd.Timestamp("2024-01-01")
-# Corte automático: el dashboard toma todos los registros disponibles desde START_DATE.
-# Ya no se requiere actualizar manualmente CUTOFF_DATE cada mes.
 VALID_YEARS = [2024, 2025, 2026]
 PROJECT_TARGETS = {2024: 500000, 2025: 700000, 2026: 750000}
 STORE_TARGETS = {2024: 150000, 2025: 250000, 2026: 275000}
@@ -325,24 +264,6 @@ DEFAULT_PROJECT_FILES = ["Proyectos 2024-2026.csv", "Reporte 2024-2026.csv", "Re
 DEFAULT_STORE_FILES = ["Tienda 2024-2026.csv", "reporte 2024-2026.csv"]
 DEFAULT_EXPENSE_FILES = ["VENTAS INTEREY PROYECTOS Y TIENDA 2026.xlsx", "Gastos INTEREY 2026.xlsx", "Gastos 2026.xlsx"]
 
-
-
-
-def fmt_date_es(dt):
-    if dt is None or pd.isna(dt):
-        return "Sin fecha"
-    months_full = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
-    dt = pd.Timestamp(dt)
-    return f"{dt.day:02d} {months_full.get(dt.month, '')} {dt.year}"
-
-def latest_data_date(*dfs):
-    dates = []
-    for df in dfs:
-        if df is not None and not df.empty and "Fecha" in df.columns:
-            d = pd.to_datetime(df["Fecha"], errors="coerce").max()
-            if pd.notna(d):
-                dates.append(d)
-    return max(dates) if dates else None
 
 def fmt_money(x):
     try:
@@ -410,64 +331,16 @@ def find_default_file(names):
             return p
     return None
 
-def merge_uploaded_with_default(uploaded_file, default_names, dedupe_priority=None):
-    """Lee el archivo histórico base y lo combina con el archivo subido.
-
-    Objetivo operativo:
-    - Si el usuario sube un reporte incremental de junio, conserva enero-mayo del archivo base.
-    - Si el usuario sube un reporte completo, elimina duplicados y conserva la versión subida.
-    """
-    frames = []
-    default_path = find_default_file(default_names)
-    if default_path is not None:
-        try:
-            frames.append(pd.read_csv(default_path))
-        except Exception:
-            pass
-    if uploaded_file is not None:
-        try:
-            frames.append(pd.read_csv(uploaded_file))
-        except Exception:
-            pass
-
-    if not frames:
-        return pd.DataFrame()
-
-    df = pd.concat(frames, ignore_index=True, sort=False)
-
-    # Normalizar encabezados por si vienen espacios accidentales.
-    df.columns = [str(c).strip() for c in df.columns]
-
-    # Prioridad de deduplicación: identificador si existe; si no, huella operativa.
-    subset = None
-    if dedupe_priority:
-        for candidate in dedupe_priority:
-            cols = [c for c in candidate if c in df.columns]
-            if len(cols) == len(candidate):
-                subset = cols
-                break
-
-    if subset:
-        df = df.drop_duplicates(subset=subset, keep="last")
-    else:
-        df = df.drop_duplicates(keep="last")
-
-    return df.reset_index(drop=True)
-
 
 @st.cache_data
 def load_projects(uploaded_file):
-    df = merge_uploaded_with_default(
-        uploaded_file,
-        DEFAULT_PROJECT_FILES,
-        dedupe_priority=[
-            ["Id"],
-            ["Fecha", "Promotor", "Cliente", "Descripcion", "Cotizado cliente", "Moneda", "TC"],
-            ["Fecha", "Promotor", "Cliente", "Cotizado cliente", "Utilidad bruta"],
-        ],
-    )
-    if df.empty:
-        return pd.DataFrame()
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+    else:
+        p = find_default_file(DEFAULT_PROJECT_FILES)
+        if p is None:
+            return pd.DataFrame()
+        df = pd.read_csv(p)
 
     for col in ["Promotor", "Cliente", "Moneda", "Descripcion"]:
         if col in df.columns:
@@ -482,9 +355,8 @@ def load_projects(uploaded_file):
     df["Fecha"] = parse_date_project(df["Fecha"])
     df = add_time_cols(df)
 
-    # Regla de corte automático: solo 2024 en adelante y años válidos.
-    # El mes visible se determina con el último mes disponible en los archivos cargados.
-    df = df[(df["Fecha"] >= START_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
+    # Regla de corte: solo 2024 en adelante y hasta 31/mayo/2026
+    df = df[(df["Fecha"] >= START_DATE) & (df["Fecha"] <= CUTOFF_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
 
     # Nota: Ana Margarita Sahagun y Orlando Martinez SÍ se incluyen en KPIs corporativos.
     # Solo se excluyen en los comparativos de desempeño por ingeniero/promotor.
@@ -509,17 +381,13 @@ def load_projects(uploaded_file):
 
 @st.cache_data
 def load_store(uploaded_file):
-    df = merge_uploaded_with_default(
-        uploaded_file,
-        DEFAULT_STORE_FILES,
-        dedupe_priority=[
-            ["Id"],
-            ["Fecha", "Cliente", "Total", "Util $", "Status", "Pago"],
-            ["Fecha", "Cliente", "Total", "Util $"],
-        ],
-    )
-    if df.empty:
-        return pd.DataFrame()
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+    else:
+        p = find_default_file(DEFAULT_STORE_FILES)
+        if p is None:
+            return pd.DataFrame()
+        df = pd.read_csv(p)
 
     for col in ["Cliente", "Status", "Pago", "Facturado"]:
         if col in df.columns:
@@ -533,8 +401,7 @@ def load_store(uploaded_file):
         return pd.DataFrame()
     df["Fecha"] = parse_date_store(df["Fecha"])
     df = add_time_cols(df)
-    # Regla de corte automático: solo 2024 en adelante y años válidos.
-    df = df[(df["Fecha"] >= START_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
+    df = df[(df["Fecha"] >= START_DATE) & (df["Fecha"] <= CUTOFF_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
 
     # TIENDA: solo considerar ventas activas.
     # Regla de negocio: cualquier registro con Status/Estatus cancelado NO debe afectar ventas, utilidad, forecast ni consolidado.
@@ -616,24 +483,10 @@ def closed_months_for_year(df, year):
     return months
 
 
-def ytd_months_for_selected_year(selected_year, projects_df=None, store_df=None):
-    """
-    Devuelve los meses disponibles del año seleccionado con base en los archivos cargados.
-    Si en 2026 ya existen registros de junio, automáticamente incluirá Ene-Jun.
-    """
-    months = set()
-    for df in [projects_df, store_df]:
-        if df is not None and not df.empty and "Año" in df.columns and "Mes_Num" in df.columns:
-            months.update(
-                df.loc[df["Año"] == selected_year, "Mes_Num"]
-                .dropna()
-                .astype(int)
-                .tolist()
-            )
-    if months:
-        max_month = max(months)
-        return list(range(1, max_month + 1))
-    return list(range(1, 13))
+def ytd_months_for_selected_year(selected_year):
+    if selected_year == 2026:
+        return [1,2,3,4,5]
+    return list(range(1,13))
 
 
 def yoy(curr, prev):
@@ -1203,15 +1056,8 @@ years_available = sorted(set(projects.get("Año", pd.Series(dtype=int)).dropna()
 years_available = [y for y in years_available if y in VALID_YEARS]
 selected_year = st.sidebar.selectbox("Año principal", years_available, index=len(years_available)-1)
 compare_years = st.sidebar.multiselect("Años a comparar", years_available, default=years_available)
-months_available = ytd_months_for_selected_year(selected_year, projects, store)
-max_month_detected = max(months_available) if months_available else 12
-st.sidebar.caption(f"Meses detectados automáticamente: {', '.join(MONTHS_ES[m] for m in months_available)}")
-selected_months = st.sidebar.multiselect(
-    "Meses del año principal",
-    list(range(1,13)),
-    default=months_available,
-    key=f"meses_auto_{selected_year}_{max_month_detected}"
-)
+months_available = ytd_months_for_selected_year(selected_year)
+selected_months = st.sidebar.multiselect("Meses del año principal", list(range(1,13)), default=months_available)
 
 st.sidebar.markdown("## Metas")
 engineers = st.sidebar.number_input("Ingenieros proyectos considerados", min_value=1, value=ACTIVE_PROJECT_ENGINEERS_FOR_TARGET, step=1)
@@ -1237,19 +1083,6 @@ projects_year = projects_base[(projects_base["Año"] == selected_year) & (projec
 store_year = store_base[(store_base["Año"] == selected_year) & (store_base["Mes_Num"].isin(selected_months))].copy()
 combined_base = pd.concat([projects_base.assign(Unidad="Proyectos"), store_base.assign(Unidad="Tienda")], ignore_index=True, sort=False)
 combined_year = pd.concat([projects_year.assign(Unidad="Proyectos"), store_year.assign(Unidad="Tienda")], ignore_index=True, sort=False)
-
-expected_months_set = set(range(1, max(months_available) + 1)) if months_available else set()
-loaded_months_set = set(combined_year["Mes_Num"].dropna().astype(int).unique().tolist()) if not combined_year.empty else set()
-missing_expected_months = sorted(expected_months_set - loaded_months_set)
-if missing_expected_months and max_month_detected > 1:
-    st.warning(
-        "El dashboard detectó que faltan meses anteriores en los archivos cargados: "
-        + ", ".join(MONTHS_ES[m] for m in missing_expected_months)
-        + ". Si subiste un reporte incremental, conserva también el archivo histórico base en GitHub para mostrar el acumulado correcto."
-    )
-
-data_max_date = latest_data_date(projects_year, store_year)
-data_max_label = fmt_date_es(data_max_date)
 
 proj_fc = forecast_block("Proyectos", projects_year, project_expenses, project_monthly_target, months_ytd, multiplier=engineers)
 store_fc = forecast_block("Tienda", store_year, store_expenses, store_monthly_target, months_ytd, multiplier=1)
@@ -1297,29 +1130,18 @@ with hc2:
     st.markdown('<div class="hero-subtitle">Soluciones en Telecomunicaciones y Seguridad</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="hero-pill"><b>Año principal:</b> {selected_year} &nbsp;|&nbsp; <b>Meses analizados:</b> {months_label}</div>', unsafe_allow_html=True)
 with hc3:
-    st.markdown(f'<div class="hero-date"><b>Datos actualizados al</b><br><span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">{data_max_label}</span><br><span>Corte automático según archivos cargados</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-date"><b>Datos actualizados al</b><br><span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">31 Mayo 2026</span><br><span>Corte fijo: 01/ene/2024 al 31/may/2026</span></div>', unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 radar_interey(consol_fc, proj_fc, store_fc)
 
-# ---------- NAVEGACIÓN EJECUTIVA ----------
-view_options = ["🏠 Resumen Ejecutivo", "📊 Consolidado", "🏗️ Proyectos", "🏪 Tienda"]
-view_map = {
-    "🏠 Resumen Ejecutivo": "Resumen Ejecutivo",
-    "📊 Consolidado": "Consolidado",
-    "🏗️ Proyectos": "Proyectos",
-    "🏪 Tienda": "Tienda",
-}
-
-st.markdown('<div class="exec-nav-wrap">', unsafe_allow_html=True)
-view_display = st.radio(
+# ---------- VISTA EJECUTIVA DINÁMICA ----------
+view_selected = st.radio(
     "Selecciona vista",
-    view_options,
+    ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda"],
     horizontal=True,
     label_visibility="collapsed",
-    key="vista_ejecutiva_radio_premium"
+    key="vista_ejecutiva"
 )
-st.markdown('</div>', unsafe_allow_html=True)
-view_selected = view_map.get(view_display, "Resumen Ejecutivo")
 
 if view_selected == "Resumen Ejecutivo":
     render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
@@ -1482,49 +1304,16 @@ elif view_selected == "Proyectos":
         detail["Meta_Mensual"] = project_monthly_target
         detail["Diferencia_Meta_MXN"] = detail["Ventas_MXN"] - detail["Meta_Mensual"]
         detail["Estado"] = detail["Cumplimiento_Pct"].apply(lambda x: "Cumplió" if pd.notna(x) and x >= 100 else ("Cerca" if pd.notna(x) and x >= 80 else "No cumplió"))
-
-        # Comparativo histórico por ingeniero: reemplaza la gráfica de cumplimiento mensual.
-        # La lectura ejecutiva ahora muestra ventas mensuales por año para el promotor seleccionado.
-        focus_history = performance_base[performance_base["Promotor"] == focus].copy()
-        focus_history = focus_history[focus_history["Año"].isin(compare_years)].copy()
-        focus_monthly = (
-            focus_history.groupby(["Año", "Mes_Num"], as_index=False)
-            .agg(Ventas_MXN=("Ventas_MXN", "sum"))
-            .sort_values(["Año", "Mes_Num"])
-        )
-
-        st.markdown('<div class="section-title">Evolución histórica de ventas por ingeniero</div>', unsafe_allow_html=True)
-        if not focus_monthly.empty:
-            ytd_selected = focus_monthly[(focus_monthly["Año"] == selected_year) & (focus_monthly["Mes_Num"].isin(months_ytd))]["Ventas_MXN"].sum()
-            prev_year = selected_year - 1
-            ytd_prev = focus_monthly[(focus_monthly["Año"] == prev_year) & (focus_monthly["Mes_Num"].isin(months_ytd))]["Ventas_MXN"].sum()
-            delta_prev = yoy(ytd_selected, ytd_prev)
-            if delta_prev is None:
-                comparison_msg = f"Comparativo histórico de {focus}: no hay base suficiente para comparar {selected_year} vs {prev_year}."
-            else:
-                comparison_msg = f"{focus}: ventas YTD {selected_year} {fmt_money(ytd_selected)} vs {prev_year} {fmt_money(ytd_prev)} · variación {fmt_pct(delta_prev)}."
-            trend_note(comparison_msg)
-
-            fig_focus = px.line(
-                focus_monthly,
-                x="Mes_Num",
-                y="Ventas_MXN",
-                color="Año",
-                markers=True,
-                title=f"Ventas mensuales comparativas · {focus}",
-                labels={"Mes_Num": "Mes", "Ventas_MXN": "Ventas MXN", "Año": "Año"},
-            )
-            fig_focus.update_layout(
-                xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER),
-                legend_title_text="Año",
-                height=430,
-                margin=dict(l=20, r=20, t=60, b=40),
-            )
-            fig_focus.add_hline(y=project_monthly_target, line_dash="dash", line_color="#475569", annotation_text="Meta mensual", annotation_position="top right")
+        cdet_g1, cdet_g2 = st.columns(2)
+        with cdet_g1:
+            fig_focus = px.line(detail, x="Mes_Num", y="Ventas_MXN", markers=True, title=f"Ventas mensuales · {focus}")
+            fig_focus.update_layout(xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER))
+            fig_focus.add_hline(y=project_monthly_target, line_dash="dash", line_color="#475569")
             st.plotly_chart(fig_focus, use_container_width=True)
-        else:
-            st.info("No hay histórico suficiente para comparar ventas mensuales del ingeniero seleccionado.")
-
+        with cdet_g2:
+            fig_focus2 = px.bar(detail, x="Mes", y="Cumplimiento_Pct", title=f"Cumplimiento mensual · {focus}")
+            fig_focus2.add_hline(y=100, line_dash="dash", line_color="#475569")
+            st.plotly_chart(fig_focus2, use_container_width=True)
         show_detail = detail[["Mes","Ventas_MXN","Utilidad_Bruta_MXN","Meta_Mensual","Diferencia_Meta_MXN","Cumplimiento_Pct","Estado"]].copy()
         premium_simple_table(
             show_detail,
@@ -1574,7 +1363,7 @@ else:  # Tienda
         st.info("No hay datos de tienda para el filtro actual.")
 
 with st.expander("Auditoría avanzada de datos filtrados"):
-    st.caption("Se muestran datos ya filtrados desde 01/ene/2024 hasta la fecha más reciente encontrada en los archivos cargados.")
+    st.caption("Se muestran datos ya filtrados por fecha: 01/ene/2024 al 31/may/2026.")
     if view_selected == "Proyectos":
         cols = [c for c in ["Id","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Descripcion","Moneda","TC","Tipo_Cambio_Aplicado","Cotizado cliente","Ventas_MXN","Utilidad bruta","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in projects.columns]
         st.dataframe(projects[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
@@ -1587,7 +1376,7 @@ with st.expander("Auditoría avanzada de datos filtrados"):
 
 with st.expander("ℹ️ Información metodológica"):
     st.markdown("""
-    - Corte automático: se toma la información disponible desde **01/ene/2024** hasta la fecha más reciente encontrada en los archivos cargados.
+    - Corte fijo de información: **01/ene/2024 al 31/may/2026**.
     - Proyectos usa **Cotizado cliente** para ventas y **Utilidad bruta** para utilidad.
     - Las operaciones en USD de Proyectos se convierten con **TC real por operación**.
     - Tienda usa **Total** para ventas y **Util $** para utilidad.
@@ -1595,4 +1384,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Los gastos se leen automáticamente desde el archivo administrativo, separados en **Proyectos** y **Tienda**.
     """)
 
-st.caption("Versión v49 · Comparativo histórico por ingeniero · Navegación ejecutiva premium · Radar INTEREY 3.0.")
+st.caption("Versión v44 · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
