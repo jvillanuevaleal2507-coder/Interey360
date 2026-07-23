@@ -62,6 +62,7 @@ st.markdown("""
 .kpi-card.gray {background: linear-gradient(135deg, #334155 0%, #64748B 100%);}
 .kpi-card.red {background: linear-gradient(135deg, #991B1B 0%, var(--interey-red) 100%);}
 .kpi-card.yellow {background: linear-gradient(135deg, #92400E 0%, var(--interey-yellow) 100%);}
+.kpi-card.orange {background: linear-gradient(135deg, #C2410C 0%, #EA580C 100%);}
 .kpi-card.orange {background: linear-gradient(135deg, #9A3412 0%, #EA580C 100%);}
 .kpi-label {font-size: .82rem; opacity: .94; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700;}
 .kpi-value {font-size: 1.62rem; font-weight: 900; margin-top: .10rem; line-height: 1.12; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing:-.02em;}
@@ -235,6 +236,12 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 .premium-table tr.highlight-row td{background:#EEF6FF; font-weight:850;}
 .premium-table tr.risk-row td{background:#FFF7F7;}
 .premium-table tr.warn-row td{background:#FFFBEB;}
+.premium-table tr.attention-row td{background:#FFF7ED;}
+.premium-table tr.critical-row td{background:#FEF2F2; font-weight:800;}
+.backlog-alert{background:linear-gradient(135deg,#7F1D1D 0%,#DC2626 100%);color:#FFFFFF;border-radius:18px;padding:16px 18px;margin:12px 0 16px 0;box-shadow:0 10px 24px rgba(185,28,28,.18);border:1px solid rgba(255,255,255,.18);}
+.backlog-alert-title{font-size:.80rem;text-transform:uppercase;letter-spacing:.08em;font-weight:900;opacity:.82;}
+.backlog-alert-value{font-size:1.28rem;font-weight:950;margin-top:5px;line-height:1.18;}
+.backlog-alert-sub{font-size:.82rem;opacity:.88;margin-top:5px;}
 .premium-table tr.attention-row td{background:#FFF7ED;}
 .premium-table tr.critical-row td{background:#FEE2E2; font-weight:850;}
 .engineer-table td:nth-child(1), .engineer-table th:nth-child(1){text-align:left;}
@@ -1124,12 +1131,12 @@ def render_dynamic_executive_view(view_name, fc, monthly_target_note=""):
 
 
 
-def render_backlog_view(backlog_df):
-    st.markdown('<div class="section-title">Ingresos comprometidos · Proyectos con OC</div>', unsafe_allow_html=True)
-    trend_note("Snapshot vigente de proyectos con orden de compra aprobada, actualmente en ejecución y todavía pendientes de facturar. El archivo mensual sustituye al anterior.")
+def render_backlog_view(backlog_df, annual_project_target):
+    st.markdown('<div class="section-title">📋 Backlog Ejecutivo</div>', unsafe_allow_html=True)
+    trend_note("Proyectos con orden de compra aprobada, actualmente en ejecución y pendientes de facturación. El archivo mensual sustituye por completo al snapshot anterior.")
 
     if backlog_df is None or backlog_df.empty:
-        st.info("No hay información de ingresos comprometidos. Carga el CSV en la barra lateral o agrega el archivo base en GitHub.")
+        st.info("No hay información de backlog. Carga el CSV en la barra lateral o agrega el archivo base en GitHub.")
         return
 
     total = float(backlog_df["Importe_Pendiente_MXN"].sum())
@@ -1139,22 +1146,84 @@ def render_backlog_view(backlog_df):
     oldest = backlog_df.loc[oldest_idx]
     oldest_days = int(oldest["Dias_Abiertos"])
     oldest_client = str(oldest.get("Cliente", "Sin cliente"))
+    oldest_amount = float(oldest.get("Importe_Pendiente_MXN", 0))
+
+    critical = backlog_df[backlog_df["Dias_Abiertos"] > 90].copy()
+    critical_count = int(len(critical))
+    critical_amount = float(critical["Importe_Pendiente_MXN"].sum()) if critical_count else 0
+    risk_pct = (critical_amount / total * 100) if total else 0
+    coverage_pct = (total / annual_project_target * 100) if annual_project_target else 0
+
+    client_summary = (
+        backlog_df.groupby("Cliente", as_index=False)
+        .agg(Importe=("Importe_Pendiente_MXN", "sum"), Proyectos=("Cliente", "size"))
+        .sort_values("Importe", ascending=False)
+    )
+    top_client = str(client_summary.iloc[0]["Cliente"]) if not client_summary.empty else "Sin cliente"
+    top_client_amount = float(client_summary.iloc[0]["Importe"]) if not client_summary.empty else 0
+    top_client_share = (top_client_amount / total * 100) if total else 0
+    healthy_count = int((backlog_df["Dias_Abiertos"] <= 30).sum())
+
+    radar_html = f"""
+    <div class="radar-card">
+        <div class="radar-head">
+            <div>
+                <div class="radar-title">📡 Radar del Backlog</div>
+                <div class="radar-subtitle">Lectura ejecutiva del ingreso pendiente, antigüedad, concentración y exposición financiera.</div>
+            </div>
+            <div class="radar-badge">{('🔴' if risk_pct >= 35 else '🟡' if risk_pct >= 20 else '🟢')} Riesgo financiero: {risk_pct:,.1f}%</div>
+        </div>
+        <div class="radar2-grid">
+            <div class="radar2-main">
+                <div class="radar2-main-label">Lectura principal</div>
+                <div class="radar2-main-value">El backlog equivale al {coverage_pct:,.1f}% de la meta anual de Proyectos.</div>
+                <div class="radar2-main-sub">Ingreso comprometido pendiente de facturar: <b>{fmt_money(total)}</b>.</div>
+            </div>
+            <div class="radar2-tile green">
+                <div class="radar2-label">🟢 Fortaleza</div>
+                <div class="radar2-value">{healthy_count:,} proyectos dentro de 30 días</div>
+                <div class="radar2-text">Representan la parte más sana y reciente del backlog.</div>
+            </div>
+            <div class="radar2-tile yellow">
+                <div class="radar2-label">🟡 Atención</div>
+                <div class="radar2-value">Antigüedad promedio: {promedio:,.0f} días</div>
+                <div class="radar2-text">Seguimiento recomendado para evitar que más proyectos migren a zona crítica.</div>
+            </div>
+            <div class="radar2-tile red">
+                <div class="radar2-label">🔴 Riesgo</div>
+                <div class="radar2-value">{critical_count:,} proyectos superan 90 días</div>
+                <div class="radar2-text">Exposición acumulada: {fmt_money(critical_amount)}.</div>
+            </div>
+            <div class="radar2-tile {'red' if top_client_share >= 35 else 'yellow' if top_client_share >= 20 else 'green'}">
+                <div class="radar2-label">🔵 Concentración</div>
+                <div class="radar2-value">{top_client} concentra {top_client_share:,.1f}%</div>
+                <div class="radar2-text">Importe pendiente del cliente: {fmt_money(top_client_amount)}.</div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(radar_html, unsafe_allow_html=True)
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
-        st.markdown(card("💰 Ingreso comprometido", fmt_money(total), "OC aprobadas pendientes de facturar"), unsafe_allow_html=True)
+        st.markdown(card("💰 Backlog total", fmt_money(total), "OC aprobadas pendientes de facturar"), unsafe_allow_html=True)
     with c2:
-        st.markdown(card("📋 Proyectos abiertos", f"{abiertos:,}", "Proyectos actualmente en ejecución", "green"), unsafe_allow_html=True)
+        st.markdown(card("📋 Proyectos abiertos", f"{abiertos:,}", "Actualmente en ejecución", "green"), unsafe_allow_html=True)
     with c3:
         avg_style = "red" if promedio > 90 else ("yellow" if promedio > 60 else "gray")
         st.markdown(card("⏳ Antigüedad promedio", f"{promedio:,.0f} días", "Desde la recepción de la OC", avg_style), unsafe_allow_html=True)
     with c4:
         old_style = "red" if oldest_days > 90 else ("orange" if oldest_days > 60 else "yellow")
-        st.markdown(card("🔴 Proyecto más antiguo", f"{oldest_days:,} días", oldest_client, old_style), unsafe_allow_html=True)
+        st.markdown(card("🔴 Proyecto más antiguo", f"{oldest_days:,} días", f"{oldest_client} · {fmt_money(oldest_amount)}", old_style), unsafe_allow_html=True)
 
-    critical = backlog_df[backlog_df["Dias_Abiertos"] > 90]
-    if not critical.empty:
-        st.error(f"⚠️ Existen {len(critical):,} proyectos con más de 90 días, por un importe comprometido de {fmt_money(critical['Importe_Pendiente_MXN'].sum())}.")
+    if critical_count:
+        st.markdown(f"""
+        <div class="backlog-alert">
+            <div class="backlog-alert-title">🚨 Riesgo financiero detectado</div>
+            <div class="backlog-alert-value">{critical_count:,} proyectos superan los 90 días y concentran {fmt_money(critical_amount)}.</div>
+            <div class="backlog-alert-sub">Esto representa el <b>{risk_pct:,.1f}%</b> del backlog total pendiente de facturación.</div>
+        </div>
+        """, unsafe_allow_html=True)
     else:
         st.success("✅ Backlog sano: no existen proyectos con más de 90 días de antigüedad.")
 
@@ -1182,10 +1251,18 @@ def render_backlog_view(backlog_df):
         fig_age.update_traces(texttemplate="%{text} proyectos", textposition="outside")
         st.plotly_chart(fig_age, use_container_width=True)
     with g2:
-        monthly = backlog_df.groupby("Periodo_OC", as_index=False).agg(Importe=("Importe_Pendiente_MXN", "sum"), Proyectos=("Periodo_OC", "size")).sort_values("Periodo_OC")
-        fig_month = px.bar(monthly, x="Periodo_OC", y="Importe", text="Proyectos", title="Ingreso comprometido por mes de recepción de OC")
-        fig_month.update_traces(texttemplate="%{text} proyectos", textposition="outside")
-        st.plotly_chart(fig_month, use_container_width=True)
+        top_clients = client_summary.head(10).sort_values("Importe", ascending=True)
+        fig_clients = px.bar(
+            top_clients,
+            x="Importe",
+            y="Cliente",
+            orientation="h",
+            text="Proyectos",
+            title="Top 10 clientes por ingreso pendiente",
+            hover_data={"Importe": ":,.0f", "Proyectos": True},
+        )
+        fig_clients.update_traces(texttemplate="%{text} proyectos", textposition="outside")
+        st.plotly_chart(fig_clients, use_container_width=True)
 
     table = backlog_df.copy().sort_values(["Dias_Abiertos", "Importe_Pendiente_MXN"], ascending=[False, False])
     table["Fecha_OC_Texto"] = table["Fecha_OC"].dt.strftime("%d/%m/%Y")
@@ -1504,7 +1581,7 @@ elif view_selected == "Proyectos":
         st.info("No hay datos de ingenieros/promotores comparables para el filtro actual. Los KPIs corporativos de Proyectos sí pueden incluir Orlando Martínez y Ana Margarita Sahagún.")
 
 elif view_selected == "Ingresos Comprometidos":
-    render_backlog_view(backlog)
+    render_backlog_view(backlog, project_monthly_target * 12 * engineers)
 
 else:  # Tienda
     st.markdown('<div class="section-title">Unidad de negocio: Tienda</div>', unsafe_allow_html=True)
@@ -1566,4 +1643,4 @@ with st.expander("ℹ️ Información metodológica"):
     - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
     """)
 
-st.caption("Versión v50 · Ingresos Comprometidos · Backlog Ejecutivo con OC · Radar INTEREY 3.0.")
+st.caption("Versión v51 · Backlog Ejecutivo · Radar de riesgo financiero y concentración · Radar INTEREY 3.0.")
