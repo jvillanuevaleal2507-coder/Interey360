@@ -1284,11 +1284,32 @@ def render_backlog_view(backlog_df, annual_project_target):
 
 # ---------- SIDEBAR ----------
 st.sidebar.markdown("## Carga de archivos")
-proj_upload = st.sidebar.file_uploader("Reporte Proyectos", type=["csv"], key="proj_upload")
-store_upload = st.sidebar.file_uploader("Reporte Tienda", type=["csv"], key="store_upload")
-expense_upload = st.sidebar.file_uploader("Archivo de gastos", type=["xlsx"], key="expense_upload")
-backlog_upload = st.sidebar.file_uploader("Proyectos en ejecución (con OC)", type=["csv"], key="backlog_upload")
-st.sidebar.caption("Si no subes archivos, el dashboard usará los archivos base de la misma carpeta. El CSV de proyectos en ejecución es un snapshot mensual y debe reemplazarse completo.")
+test_mode = st.sidebar.checkbox(
+    "Modo de pruebas",
+    value=False,
+    help="Actívalo para reemplazar temporalmente uno o más archivos del repositorio.",
+)
+
+proj_upload = None
+store_upload = None
+expense_upload = None
+backlog_upload = None
+
+if test_mode:
+    st.sidebar.caption(
+        "Los archivos que cargues aquí reemplazarán temporalmente a los del repositorio. "
+        "Si dejas alguno vacío, se seguirá usando su archivo base."
+    )
+    proj_upload = st.sidebar.file_uploader("Reporte Proyectos", type=["csv"], key="proj_upload")
+    store_upload = st.sidebar.file_uploader("Reporte Tienda", type=["csv"], key="store_upload")
+    expense_upload = st.sidebar.file_uploader("Archivo de gastos", type=["xlsx"], key="expense_upload")
+    backlog_upload = st.sidebar.file_uploader("Proyectos en ejecución (con OC)", type=["csv"], key="backlog_upload")
+    st.sidebar.info("Fuente: archivos de prueba y repositorio como respaldo")
+else:
+    st.sidebar.success("Fuente: repositorio (automático)")
+    st.sidebar.caption(
+        "El dashboard busca automáticamente los archivos base en la misma carpeta del script."
+    )
 
 projects = load_projects(proj_upload)
 store = load_store(store_upload)
