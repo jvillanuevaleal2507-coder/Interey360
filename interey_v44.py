@@ -260,6 +260,7 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 """, unsafe_allow_html=True)
 
 MONTHS_ES = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
+MONTHS_LONG_ES = {1:"enero",2:"febrero",3:"marzo",4:"abril",5:"mayo",6:"junio",7:"julio",8:"agosto",9:"septiembre",10:"octubre",11:"noviembre",12:"diciembre"}
 MONTH_ORDER = [MONTHS_ES[i] for i in range(1,13)]
 MONTHS_FULL_TO_NUM = {"ENERO":1,"FEBRERO":2,"MARZO":3,"ABRIL":4,"MAYO":5,"JUNIO":6,"JULIO":7,"AGOSTO":8,"SEPTIEMBRE":9,"SETIEMBRE":9,"OCTUBRE":10,"NOVIEMBRE":11,"DICIEMBRE":12}
 # Incluye todos los movimientos del ejercicio 2026. Antes estaba fijado al
@@ -345,8 +346,17 @@ def find_default_file(names):
     return None
 
 
+def default_file_signature(names):
+    """Identifica la versión actual del archivo base para invalidar la caché."""
+    p = find_default_file(names)
+    if p is None:
+        return None
+    stat = p.stat()
+    return str(p), stat.st_mtime_ns, stat.st_size
+
+
 @st.cache_data
-def load_projects(uploaded_file):
+def load_projects(uploaded_file, default_signature=None):
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
     else:
@@ -393,7 +403,7 @@ def load_projects(uploaded_file):
 
 
 @st.cache_data
-def load_backlog(uploaded_file):
+def load_backlog(uploaded_file, default_signature=None):
     """Carga el snapshot vigente de proyectos con OC pendientes de facturar.
 
     Este archivo sustituye al anterior en cada corte mensual; no se acumula.
@@ -474,7 +484,7 @@ def load_backlog(uploaded_file):
 
 
 @st.cache_data
-def load_store(uploaded_file):
+def load_store(uploaded_file, default_signature=None):
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
     else:
@@ -512,7 +522,7 @@ def load_store(uploaded_file):
 
 
 @st.cache_data
-def load_expenses(expense_file):
+def load_expenses(expense_file, default_signature=None):
     """
     Lee gastos mensuales desde el Excel administrativo.
     Espera una hoja tipo 'RESUMEN 2026' con columnas:
@@ -1313,10 +1323,10 @@ else:
         "El dashboard busca automáticamente los archivos base en la misma carpeta del script."
     )
 
-projects = load_projects(proj_upload)
-store = load_store(store_upload)
-expenses = load_expenses(expense_upload)
-backlog = load_backlog(backlog_upload)
+projects = load_projects(proj_upload, default_file_signature(DEFAULT_PROJECT_FILES))
+store = load_store(store_upload, default_file_signature(DEFAULT_STORE_FILES))
+expenses = load_expenses(expense_upload, default_file_signature(DEFAULT_EXPENSE_FILES))
+backlog = load_backlog(backlog_upload, default_file_signature(DEFAULT_BACKLOG_FILES))
 
 if projects.empty and store.empty:
     st.error("No encontré datos. Sube los CSV de Proyectos y Tienda o colócalos en la misma carpeta del script.")
@@ -1324,8 +1334,35 @@ if projects.empty and store.empty:
 
 years_available = sorted(set(projects.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist() + store.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist()))
 years_available = [y for y in years_available if y in VALID_YEARS]
+if not years_available:
+    st.error("Los archivos no contienen años válidos entre 2024 y 2026.")
+    st.stop()
 selected_year = st.sidebar.selectbox("Año principal", years_available, index=len(years_available)-1)
 compare_years = st.sidebar.multiselect("Años a comparar", years_available, default=years_available)
+project_years_detected = sorted(projects.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist())
+store_years_detected = sorted(store.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist())
+st.sidebar.caption(
+    f"Años detectados · Proyectos: {', '.join(map(str, project_years_detected)) or 'ninguno'} · "
+    f"Tienda: {', '.join(map(str, store_years_detected)) or 'ninguno'}"
+)
+
+available_dates = pd.concat(
+    [
+        projects.get("Fecha", pd.Series(dtype="datetime64[ns]")),
+        store.get("Fecha", pd.Series(dtype="datetime64[ns]")),
+    ],
+    ignore_index=True,
+).dropna()
+data_start_date = available_dates.min() if not available_dates.empty else START_DATE
+data_end_date = available_dates.max() if not available_dates.empty else CUTOFF_DATE
+
+def fmt_date_es(value):
+    value = pd.Timestamp(value)
+    return f"{value.day} {MONTHS_LONG_ES[value.month].capitalize()} {value.year}"
+
+def fmt_date_short_es(value):
+    value = pd.Timestamp(value)
+    return f"{value.day:02d}/{MONTHS_ES[value.month].lower()}/{value.year}"
 months_available = ytd_months_for_selected_year(selected_year)
 selected_months = st.sidebar.multiselect("Meses del año principal", list(range(1,13)), default=months_available)
 
@@ -1400,7 +1437,12 @@ with hc2:
     st.markdown('<div class="hero-subtitle">Soluciones en Telecomunicaciones y Seguridad</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="hero-pill"><b>Año principal:</b> {selected_year} &nbsp;|&nbsp; <b>Meses analizados:</b> {months_label}</div>', unsafe_allow_html=True)
 with hc3:
-    st.markdown('<div class="hero-date"><b>Datos actualizados al</b><br><span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">31 Mayo 2026</span><br><span>Corte fijo: 01/ene/2024 al 31/may/2026</span></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="hero-date"><b>Datos disponibles hasta el</b><br>'
+        f'<span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">{fmt_date_es(data_end_date)}</span><br>'
+        f'<span>Periodo detectado: {fmt_date_short_es(data_start_date)} al {fmt_date_short_es(data_end_date)}</span></div>',
+        unsafe_allow_html=True,
+    )
 st.markdown('</div>', unsafe_allow_html=True)
 radar_interey(consol_fc, proj_fc, store_fc)
 
@@ -1636,7 +1678,7 @@ else:  # Tienda
         st.info("No hay datos de tienda para el filtro actual.")
 
 with st.expander("Auditoría avanzada de datos filtrados"):
-    st.caption("Se muestran datos ya filtrados por fecha: 01/ene/2024 al 31/may/2026.")
+    st.caption(f"Periodo disponible detectado en los archivos: {fmt_date_short_es(data_start_date)} al {fmt_date_short_es(data_end_date)}.")
     if view_selected == "Proyectos":
         cols = [c for c in ["Id","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Descripcion","Moneda","TC","Tipo_Cambio_Aplicado","Cotizado cliente","Ventas_MXN","Utilidad bruta","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in projects.columns]
         st.dataframe(projects[cols].sort_values("Fecha", ascending=False), width="stretch", hide_index=True)
@@ -1655,7 +1697,7 @@ with st.expander("Auditoría avanzada de datos filtrados"):
 
 with st.expander("ℹ️ Información metodológica"):
     st.markdown("""
-    - Corte fijo de información: **01/ene/2024 al 31/may/2026**.
+    - El periodo disponible se calcula automáticamente con las fechas contenidas en los archivos de Proyectos y Tienda.
     - Proyectos usa **Cotizado cliente** para ventas y **Utilidad bruta** para utilidad.
     - Las operaciones en USD de Proyectos se convierten con **TC real por operación**.
     - Tienda usa **Total** para ventas y **Util $** para utilidad.
