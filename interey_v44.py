@@ -1826,6 +1826,61 @@ def render_backlog_view(backlog_df, annual_project_target):
         row_class_fn=lambda row, idx: "critical-row" if float(row.get("Dias_Abiertos", 0)) > 90 else ("attention-row" if float(row.get("Dias_Abiertos", 0)) > 60 else ("warn-row" if float(row.get("Dias_Abiertos", 0)) > 30 else "highlight-row"))
     )
 
+
+@st.fragment
+def render_engineer_detail_fragment(performance_year, prom_month, project_monthly_target, months_ytd):
+    """Detalle de ingeniero con rerun aislado: cambiar promotor no reconstruye la vista Proyectos."""
+    st.markdown('<div class="section-title">Detalle ejecutivo por ingeniero / promotor</div>', unsafe_allow_html=True)
+    focus = st.selectbox("Selecciona ingeniero / promotor", sorted(performance_year["Promotor"].dropna().unique().tolist()), key="promotor_detalle_v40")
+    focus_year = performance_year[performance_year["Promotor"] == focus].copy()
+    f_ventas = focus_year["Ventas_MXN"].sum()
+    f_util = focus_year["Utilidad_Bruta_MXN"].sum()
+    f_margen = f_util / f_ventas * 100 if f_ventas else 0
+    f_meta_ytd = project_monthly_target * len(months_ytd)
+    f_cump = f_ventas / f_meta_ytd * 100 if f_meta_ytd else 0
+    _, f_cump_style, f_cump_status = status_from_pct(f_cump, green=100, yellow=80)
+    cdet = st.columns(5)
+    with cdet[0]: st.markdown(card(f"Ventas · {focus}", fmt_money(f_ventas), "acumulado meses seleccionados"), unsafe_allow_html=True)
+    with cdet[1]: st.markdown(card("Utilidad bruta", fmt_money(f_util), f"Margen: {fmt_pct(f_margen)}", "green" if f_util >= 0 else "red"), unsafe_allow_html=True)
+    with cdet[2]: st.markdown(card("Meta YTD", fmt_money(f_meta_ytd), f"{fmt_money(project_monthly_target)} × {len(months_ytd)} meses", "gray"), unsafe_allow_html=True)
+    with cdet[3]: st.markdown(card("Cumplimiento YTD", fmt_pct(f_cump), f"{f_cump_status}", f_cump_style), unsafe_allow_html=True)
+    with cdet[4]: st.markdown(card("Diferencia vs meta", fmt_money_signed(f_ventas - f_meta_ytd), "positivo = arriba de meta", "green" if f_ventas >= f_meta_ytd else "red"), unsafe_allow_html=True)
+
+    detail = prom_month[prom_month["Promotor"] == focus].copy().sort_values("Mes_Num")
+    detail["Meta_Mensual"] = project_monthly_target
+    detail["Diferencia_Meta_MXN"] = detail["Ventas_MXN"] - detail["Meta_Mensual"]
+    detail["Estado"] = detail["Cumplimiento_Pct"].apply(lambda x: "Cumplió" if pd.notna(x) and x >= 100 else ("Cerca" if pd.notna(x) and x >= 80 else "No cumplió"))
+    cdet_g1, cdet_g2 = st.columns(2)
+    with cdet_g1:
+        fig_focus = px.line(detail, x="Mes_Num", y="Ventas_MXN", markers=True, title=f"Ventas mensuales · {focus}")
+        fig_focus.update_layout(xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER))
+        fig_focus.add_hline(y=project_monthly_target, line_dash="dash", line_color="#475569")
+        style_exec_chart(fig_focus, height=410, money_axis=True, legend=False)
+        st.plotly_chart(fig_focus, use_container_width=True, config=PLOT_CONFIG)
+    with cdet_g2:
+        fig_focus2 = px.bar(detail, x="Mes", y="Cumplimiento_Pct", title=f"Cumplimiento mensual · {focus}")
+        fig_focus2.add_hline(y=100, line_dash="dash", line_color="#475569")
+        style_exec_chart(fig_focus2, height=410, money_axis=False, legend=False)
+        fig_focus2.update_yaxes(ticksuffix="%")
+        st.plotly_chart(fig_focus2, use_container_width=True, config=PLOT_CONFIG)
+    show_detail = detail[["Mes","Ventas_MXN","Utilidad_Bruta_MXN","Meta_Mensual","Diferencia_Meta_MXN","Cumplimiento_Pct","Estado"]].copy()
+    premium_simple_table(
+        show_detail,
+        "Detalle Mensual del Ingeniero Seleccionado",
+        "Comparativo mensual contra meta: ventas, utilidad bruta, avance y diferencia.",
+        columns=[
+            ("Mes", "Mes", "text"),
+            ("Ventas_MXN", "Ventas", "money"),
+            ("Utilidad_Bruta_MXN", "Utilidad bruta", "money"),
+            ("Meta_Mensual", "Meta mensual", "money"),
+            ("Diferencia_Meta_MXN", "Diferencia vs meta", "money_signed"),
+            ("Cumplimiento_Pct", "Avance", "pct"),
+            ("Estado", "Estado", "text"),
+        ],
+        row_class_fn=lambda row, idx: "highlight-row" if str(row.get("Estado","")) == "Cumplió" else ("warn-row" if str(row.get("Estado","")) == "Cerca" else "risk-row")
+    )
+
+
 # ---------- SIDEBAR ----------
 st.sidebar.markdown("## Fuente de información")
 manual_mode = st.sidebar.checkbox(
@@ -1880,15 +1935,6 @@ if period_advanced:
 else:
     selected_months = months_available
     st.sidebar.caption("Periodo automático: " + " · ".join(MONTHS_ES[m] for m in selected_months))
-
-st.sidebar.markdown("## Experiencia")
-display_mode = st.sidebar.radio(
-    "Modo de visualización",
-    ["Dirección", "Análisis"],
-    horizontal=True,
-    key="display_mode_v56",
-    help="Dirección prioriza lectura rápida. Análisis conserva tablas y detalle operativo."
-)
 
 st.sidebar.markdown("## Metas")
 engineers = st.sidebar.number_input("Ingenieros proyectos considerados", min_value=1, value=ACTIVE_PROJECT_ENGINEERS_FOR_TARGET, step=1)
@@ -1998,294 +2044,273 @@ st.markdown('</div>', unsafe_allow_html=True)
 radar_interey(consol_fc, proj_fc, store_fc)
 render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
 
-# ---------- VISTA EJECUTIVA DINÁMICA ----------
-view_selected = st.radio(
-    "Selecciona vista",
-    ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda", "Ingresos Comprometidos"],
-    horizontal=True,
-    label_visibility="collapsed",
-    key="vista_ejecutiva"
-)
-
-if view_selected == "Resumen Ejecutivo":
-    render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
-elif view_selected == "Consolidado":
-    render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
-elif view_selected == "Proyectos":
-    render_dynamic_executive_view("Proyectos", proj_fc, f"{engineers} ing. × {fmt_money(project_monthly_target)} × 12")
-elif view_selected == "Tienda":
-    render_dynamic_executive_view("Tienda", store_fc, f"{fmt_money(store_monthly_target)} × 12")
-
-# ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
-if view_selected == "Resumen Ejecutivo":
-    render_executive_summary(consol_fc, proj_fc, store_fc, show_table=(display_mode == "Análisis"))
-    trend_note("Resumen Ejecutivo no muestra tablas ni gráficas extensas. Para análisis detallado usa Consolidado, Proyectos o Tienda.")
-
-elif view_selected == "Consolidado":
-    st.markdown('<div class="section-title">Resultado corporativo</div>', unsafe_allow_html=True)
-    gauge = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=consol_fc["cumplimiento"],
-        title={'text': "Cumplimiento proyectado vs meta consolidada"},
-        gauge={
-            'axis': {'range': [0, 150]},
-            'bar': {'color': '#0B1F4D'},
-            'steps': [
-                {'range':[0,90],'color':'#FEE2E2'},
-                {'range':[90,100],'color':'#FEF3C7'},
-                {'range':[100,150],'color':'#DCFCE7'}
-            ]
-        }
-    ))
-    gauge.update_layout(height=330, margin=dict(l=25,r=25,t=55,b=20), paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#334155"))
-    st.plotly_chart(gauge, use_container_width=True, config=PLOT_CONFIG)
-    trend_note("Se eliminó el puente de utilidad en esta vista para mantener el consolidado más limpio. La utilidad neta ya se resume en las tarjetas superiores y en el comparativo ejecutivo.")
-
-    st.markdown('<div class="section-title">Evolución mensual consolidada</div>', unsafe_allow_html=True)
-    monthly_chart(
-        combined_base,
-        "Ventas mensuales consolidadas",
-        "Ventas_MXN",
-        key="monthly_consolidado_v56",
-        detail_label="Consolidado"
-    )
-    if display_mode == "Análisis":
-        monthly_summary_table(combined_base, "Resumen mensual de ventas consolidadas (MXN)", "Ventas_MXN")
-
-    st.markdown('<div class="section-title">Comparativo Proyectos vs Tienda</div>', unsafe_allow_html=True)
-    comp = pd.DataFrame([
-        {"Unidad":"Proyectos", "Ventas":proj_fc["ventas_ytd"], "Utilidad bruta":proj_fc["utilidad_bruta_ytd"], "Gastos":proj_fc["gasto_ytd"], "Utilidad neta":proj_fc["utilidad_neta_ytd"]},
-        {"Unidad":"Tienda", "Ventas":store_fc["ventas_ytd"], "Utilidad bruta":store_fc["utilidad_bruta_ytd"], "Gastos":store_fc["gasto_ytd"], "Utilidad neta":store_fc["utilidad_neta_ytd"]},
-    ])
-    comp["Margen bruto %"] = comp["Utilidad bruta"] / comp["Ventas"].replace(0,pd.NA) * 100
-    comp["Margen neto %"] = comp["Utilidad neta"] / comp["Ventas"].replace(0,pd.NA) * 100
-    comp["Participación ventas %"] = comp["Ventas"] / comp["Ventas"].sum() * 100 if comp["Ventas"].sum() else 0
-
-    c1,c2 = st.columns(2)
-    with c1:
-        fig = px.bar(comp, x="Unidad", y=["Ventas", "Utilidad bruta", "Utilidad neta"], barmode="group", title="Ventas, utilidad bruta y utilidad neta", color_discrete_sequence=["#123E70", "#118C7E", "#64748B"])
-        fig.update_traces(hovertemplate="%{fullData.name}<br>$%{y:,.0f}<extra></extra>")
-        style_exec_chart(fig, height=390, money_axis=True, legend=True)
-        st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
-    with c2:
-        fig = px.pie(comp, values="Ventas", names="Unidad", hole=.62, title="Participación en ventas", color="Unidad", color_discrete_map={"Proyectos":"#123E70", "Tienda":"#118C7E"})
-        fig.update_traces(textposition="inside", textinfo="percent+label", hovertemplate="%{label}<br>$%{value:,.0f}<br>%{percent}<extra></extra>")
-        style_exec_chart(fig, height=390, money_axis=False, legend=False)
-        st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
-    comp_show = comp.copy()
-    comp_show["Unidad"] = comp_show["Unidad"].map({"Proyectos": "🔵 Proyectos", "Tienda": "🟢 Tienda"}).fillna(comp_show["Unidad"])
-    premium_simple_table(
-        comp_show,
-        "Comparativo Ejecutivo de Unidades",
-        "Lectura rápida de ventas, utilidad, gastos, margen y participación por unidad de negocio.",
-        columns=[
-            ("Unidad", "Unidad", "text"),
-            ("Ventas", "Ventas", "money"),
-            ("Utilidad bruta", "Utilidad bruta", "money"),
-            ("Gastos", "Gastos", "money"),
-            ("Utilidad neta", "Utilidad neta", "money_signed"),
-            ("Margen bruto %", "Margen bruto", "pct"),
-            ("Margen neto %", "Margen neto", "pct"),
-            ("Participación ventas %", "Participación", "pct"),
-        ],
-        row_class_fn=lambda row, idx: "highlight-row" if "Proyectos" in str(row.get("Unidad","")) else ""
+# ---------- VISTA EJECUTIVA DINÁMICA · FRAGMENTO ----------
+@st.fragment
+def render_dashboard_body():
+    """
+    Navegación principal aislada. Cambiar Resumen/Consolidado/Proyectos/Tienda/Backlog
+    vuelve a ejecutar únicamente el cuerpo del dashboard; header, Radar y Pulso permanecen estables.
+    """
+    view_selected = st.radio(
+        "Selecciona vista",
+        ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda", "Ingresos Comprometidos"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="vista_ejecutiva"
     )
 
-elif view_selected == "Proyectos":
-    st.markdown('<div class="section-title">Unidad de negocio: Proyectos</div>', unsafe_allow_html=True)
-    trend_note("Esta vista muestra ventas mensuales, conciliación y desempeño comercial del equipo. Orlando Martínez y Ana Margarita Sahagún suman en KPIs corporativos, pero no participan en el comparativo de ingenieros.")
-
-    monthly_chart(
-        projects_base,
-        "Ventas mensuales proyectos",
-        "Ventas_MXN",
-        key="monthly_proyectos_v56",
-        detail_label="Proyectos"
+    display_mode = st.segmented_control(
+        "Nivel de detalle",
+        options=["Dirección", "Análisis"],
+        default="Dirección",
+        selection_mode="single",
+        required=True,
+        key="display_mode_v62",
+        label_visibility="collapsed",
+        width="content",
+        help="Dirección prioriza lectura rápida. Análisis conserva tablas y detalle operativo."
     )
-    if display_mode == "Análisis":
-        monthly_summary_table(projects_base, "Resumen mensual de ventas proyectos (MXN)", "Ventas_MXN")
 
-    st.markdown('<div class="section-title">Desempeño Comercial del Equipo</div>', unsafe_allow_html=True)
-    performance_year = projects_year[~projects_year["Promotor"].fillna("").str.upper().isin(EXCLUDE_FROM_ENGINEER_ANALYSIS)].copy()
-    performance_base = projects_base[~projects_base["Promotor"].fillna("").str.upper().isin(EXCLUDE_FROM_ENGINEER_ANALYSIS)].copy()
+    if view_selected == "Resumen Ejecutivo":
+        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
+    elif view_selected == "Consolidado":
+        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
+    elif view_selected == "Proyectos":
+        render_dynamic_executive_view("Proyectos", proj_fc, f"{engineers} ing. × {fmt_money(project_monthly_target)} × 12")
+    elif view_selected == "Tienda":
+        render_dynamic_executive_view("Tienda", store_fc, f"{fmt_money(store_monthly_target)} × 12")
 
-    if not performance_year.empty:
-        prom = performance_year.groupby("Promotor", as_index=False).agg(
-            Ventas_MXN=("Ventas_MXN","sum"),
-            Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"),
-            Clientes=("Cliente","nunique"),
-            Meses_Con_Venta=("Mes_Num","nunique")
+    # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
+    if view_selected == "Resumen Ejecutivo":
+        render_executive_summary(consol_fc, proj_fc, store_fc, show_table=(display_mode == "Análisis"))
+        trend_note("Resumen Ejecutivo no muestra tablas ni gráficas extensas. Para análisis detallado usa Consolidado, Proyectos o Tienda.")
+
+    elif view_selected == "Consolidado":
+        st.markdown('<div class="section-title">Resultado corporativo</div>', unsafe_allow_html=True)
+        gauge = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=consol_fc["cumplimiento"],
+            title={'text': "Cumplimiento proyectado vs meta consolidada"},
+            gauge={
+                'axis': {'range': [0, 150]},
+                'bar': {'color': '#0B1F4D'},
+                'steps': [
+                    {'range':[0,90],'color':'#FEE2E2'},
+                    {'range':[90,100],'color':'#FEF3C7'},
+                    {'range':[100,150],'color':'#DCFCE7'}
+                ]
+            }
+        ))
+        gauge.update_layout(height=330, margin=dict(l=25,r=25,t=55,b=20), paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#334155"))
+        st.plotly_chart(gauge, use_container_width=True, config=PLOT_CONFIG)
+        trend_note("Se eliminó el puente de utilidad en esta vista para mantener el consolidado más limpio. La utilidad neta ya se resume en las tarjetas superiores y en el comparativo ejecutivo.")
+
+        st.markdown('<div class="section-title">Evolución mensual consolidada</div>', unsafe_allow_html=True)
+        monthly_chart(
+            combined_base,
+            "Ventas mensuales consolidadas",
+            "Ventas_MXN",
+            key="monthly_consolidado_v56",
+            detail_label="Consolidado"
         )
-        prom["Margen_Bruto_Pct"] = prom["Utilidad_Bruta_MXN"] / prom["Ventas_MXN"].replace(0,pd.NA) * 100
-        prom["Meta_YTD"] = project_monthly_target * len(months_ytd)
-        prom["Cumplimiento_YTD_Pct"] = prom["Ventas_MXN"] / prom["Meta_YTD"].replace(0,pd.NA) * 100
-        prom["Semaforo"] = prom["Cumplimiento_YTD_Pct"].apply(lambda x: "🟢 Cumple" if pd.notna(x) and x >= 100 else ("🟡 Cerca" if pd.notna(x) and x >= 80 else "🔴 Bajo meta"))
+        if display_mode == "Análisis":
+            monthly_summary_table(combined_base, "Resumen mensual de ventas consolidadas (MXN)", "Ventas_MXN")
 
-        def prom_alert(row):
-            issues = []
-            if pd.notna(row["Cumplimiento_YTD_Pct"]) and row["Cumplimiento_YTD_Pct"] < 80:
-                issues.append("Bajo meta YTD")
-            if pd.notna(row["Margen_Bruto_Pct"]) and row["Margen_Bruto_Pct"] < 20:
-                issues.append("Margen bajo")
-            return ", ".join(issues) if issues else "Sin alerta"
+        st.markdown('<div class="section-title">Comparativo Proyectos vs Tienda</div>', unsafe_allow_html=True)
+        comp = pd.DataFrame([
+            {"Unidad":"Proyectos", "Ventas":proj_fc["ventas_ytd"], "Utilidad bruta":proj_fc["utilidad_bruta_ytd"], "Gastos":proj_fc["gasto_ytd"], "Utilidad neta":proj_fc["utilidad_neta_ytd"]},
+            {"Unidad":"Tienda", "Ventas":store_fc["ventas_ytd"], "Utilidad bruta":store_fc["utilidad_bruta_ytd"], "Gastos":store_fc["gasto_ytd"], "Utilidad neta":store_fc["utilidad_neta_ytd"]},
+        ])
+        comp["Margen bruto %"] = comp["Utilidad bruta"] / comp["Ventas"].replace(0,pd.NA) * 100
+        comp["Margen neto %"] = comp["Utilidad neta"] / comp["Ventas"].replace(0,pd.NA) * 100
+        comp["Participación ventas %"] = comp["Ventas"] / comp["Ventas"].sum() * 100 if comp["Ventas"].sum() else 0
 
-        prom["Alerta"] = prom.apply(prom_alert, axis=1)
+        c1,c2 = st.columns(2)
+        with c1:
+            fig = px.bar(comp, x="Unidad", y=["Ventas", "Utilidad bruta", "Utilidad neta"], barmode="group", title="Ventas, utilidad bruta y utilidad neta", color_discrete_sequence=["#123E70", "#118C7E", "#64748B"])
+            fig.update_traces(hovertemplate="%{fullData.name}<br>$%{y:,.0f}<extra></extra>")
+            style_exec_chart(fig, height=390, money_axis=True, legend=True)
+            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+        with c2:
+            fig = px.pie(comp, values="Ventas", names="Unidad", hole=.62, title="Participación en ventas", color="Unidad", color_discrete_map={"Proyectos":"#123E70", "Tienda":"#118C7E"})
+            fig.update_traces(textposition="inside", textinfo="percent+label", hovertemplate="%{label}<br>$%{value:,.0f}<br>%{percent}<extra></extra>")
+            style_exec_chart(fig, height=390, money_axis=False, legend=False)
+            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+        comp_show = comp.copy()
+        comp_show["Unidad"] = comp_show["Unidad"].map({"Proyectos": "🔵 Proyectos", "Tienda": "🟢 Tienda"}).fillna(comp_show["Unidad"])
+        premium_simple_table(
+            comp_show,
+            "Comparativo Ejecutivo de Unidades",
+            "Lectura rápida de ventas, utilidad, gastos, margen y participación por unidad de negocio.",
+            columns=[
+                ("Unidad", "Unidad", "text"),
+                ("Ventas", "Ventas", "money"),
+                ("Utilidad bruta", "Utilidad bruta", "money"),
+                ("Gastos", "Gastos", "money"),
+                ("Utilidad neta", "Utilidad neta", "money_signed"),
+                ("Margen bruto %", "Margen bruto", "pct"),
+                ("Margen neto %", "Margen neto", "pct"),
+                ("Participación ventas %", "Participación", "pct"),
+            ],
+            row_class_fn=lambda row, idx: "highlight-row" if "Proyectos" in str(row.get("Unidad","")) else ""
+        )
 
-        c_rank1, c_rank2 = st.columns([1.05, 1])
-        with c_rank1:
-            fig = px.bar(
-                prom.sort_values("Ventas_MXN"), x="Ventas_MXN", y="Promotor", orientation="h",
-                title="Ranking promotores por ventas",
-                hover_data=["Utilidad_Bruta_MXN","Margen_Bruto_Pct","Clientes","Cumplimiento_YTD_Pct"],
-                color_discrete_sequence=["#123E70"]
+    elif view_selected == "Proyectos":
+        st.markdown('<div class="section-title">Unidad de negocio: Proyectos</div>', unsafe_allow_html=True)
+        trend_note("Esta vista muestra ventas mensuales, conciliación y desempeño comercial del equipo. Orlando Martínez y Ana Margarita Sahagún suman en KPIs corporativos, pero no participan en el comparativo de ingenieros.")
+
+        monthly_chart(
+            projects_base,
+            "Ventas mensuales proyectos",
+            "Ventas_MXN",
+            key="monthly_proyectos_v56",
+            detail_label="Proyectos"
+        )
+        if display_mode == "Análisis":
+            monthly_summary_table(projects_base, "Resumen mensual de ventas proyectos (MXN)", "Ventas_MXN")
+
+        st.markdown('<div class="section-title">Desempeño Comercial del Equipo</div>', unsafe_allow_html=True)
+        performance_year = projects_year[~projects_year["Promotor"].fillna("").str.upper().isin(EXCLUDE_FROM_ENGINEER_ANALYSIS)].copy()
+        performance_base = projects_base[~projects_base["Promotor"].fillna("").str.upper().isin(EXCLUDE_FROM_ENGINEER_ANALYSIS)].copy()
+
+        if not performance_year.empty:
+            prom = performance_year.groupby("Promotor", as_index=False).agg(
+                Ventas_MXN=("Ventas_MXN","sum"),
+                Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"),
+                Clientes=("Cliente","nunique"),
+                Meses_Con_Venta=("Mes_Num","nunique")
             )
-            fig.update_traces(hovertemplate="%{y}<br>Ventas $%{x:,.0f}<extra></extra>")
+            prom["Margen_Bruto_Pct"] = prom["Utilidad_Bruta_MXN"] / prom["Ventas_MXN"].replace(0,pd.NA) * 100
+            prom["Meta_YTD"] = project_monthly_target * len(months_ytd)
+            prom["Cumplimiento_YTD_Pct"] = prom["Ventas_MXN"] / prom["Meta_YTD"].replace(0,pd.NA) * 100
+            prom["Semaforo"] = prom["Cumplimiento_YTD_Pct"].apply(lambda x: "🟢 Cumple" if pd.notna(x) and x >= 100 else ("🟡 Cerca" if pd.notna(x) and x >= 80 else "🔴 Bajo meta"))
+
+            def prom_alert(row):
+                issues = []
+                if pd.notna(row["Cumplimiento_YTD_Pct"]) and row["Cumplimiento_YTD_Pct"] < 80:
+                    issues.append("Bajo meta YTD")
+                if pd.notna(row["Margen_Bruto_Pct"]) and row["Margen_Bruto_Pct"] < 20:
+                    issues.append("Margen bajo")
+                return ", ".join(issues) if issues else "Sin alerta"
+
+            prom["Alerta"] = prom.apply(prom_alert, axis=1)
+
+            c_rank1, c_rank2 = st.columns([1.05, 1])
+            with c_rank1:
+                fig = px.bar(
+                    prom.sort_values("Ventas_MXN"), x="Ventas_MXN", y="Promotor", orientation="h",
+                    title="Ranking promotores por ventas",
+                    hover_data=["Utilidad_Bruta_MXN","Margen_Bruto_Pct","Clientes","Cumplimiento_YTD_Pct"],
+                    color_discrete_sequence=["#123E70"]
+                )
+                fig.update_traces(hovertemplate="%{y}<br>Ventas $%{x:,.0f}<extra></extra>")
+                style_exec_chart(fig, height=430, money_axis=False, legend=False)
+                fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+                st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+            with c_rank2:
+                fig = px.scatter(
+                    prom, x="Ventas_MXN", y="Margen_Bruto_Pct", size="Utilidad_Bruta_MXN", color="Promotor",
+                    title="Ventas vs margen bruto por promotor",
+                    hover_data=["Clientes","Cumplimiento_YTD_Pct"]
+                )
+                style_exec_chart(fig, height=430, money_axis=False, legend=True)
+                fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+                fig.update_yaxes(ticksuffix="%")
+                st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+
+            st.markdown('<div class="section-title">Ranking Comercial INTEREY</div>', unsafe_allow_html=True)
+            st.caption("Lectura ejecutiva por ingeniero: ventas acumuladas, utilidad bruta, margen y avance contra meta.")
+            premium_engineer_table(prom)
+
+            st.markdown('<div class="section-title">Heatmap mensual de cumplimiento por promotor</div>', unsafe_allow_html=True)
+            prom_month = performance_base[(performance_base["Año"] == selected_year) & (performance_base["Mes_Num"].isin(months_ytd))].groupby(["Promotor","Mes_Num"], as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
+            prom_month["Cumplimiento_Pct"] = prom_month["Ventas_MXN"] / project_monthly_target * 100 if project_monthly_target else 0
+            prom_month["Mes"] = prom_month["Mes_Num"].map(MONTHS_ES)
+            heat_table = prom_month.pivot_table(index="Promotor", columns="Mes", values="Cumplimiento_Pct", aggfunc="mean").reindex(columns=[MONTHS_ES[m] for m in months_ytd])
+            if not heat_table.empty:
+                fig_heat = px.imshow(
+                    heat_table.fillna(0),
+                    labels=dict(x="Mes", y="Promotor", color="% Cumplimiento"),
+                    color_continuous_scale=[(0.0, "#DC2626"), (0.6, "#F59E0B"), (1.0, "#16A34A")],
+                    aspect="auto",
+                    zmin=0,
+                    zmax=max(float(prom_month["Cumplimiento_Pct"].max()) if not prom_month.empty else 100, 100)
+                )
+                fig_heat.update_layout(height=410, margin=dict(l=20,r=20,t=35,b=35), paper_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_heat, use_container_width=True, config=PLOT_CONFIG)
+
+            render_engineer_detail_fragment(
+                performance_year=performance_year,
+                prom_month=prom_month,
+                project_monthly_target=project_monthly_target,
+                months_ytd=months_ytd,
+            )
+        else:
+            st.info("No hay datos de ingenieros/promotores comparables para el filtro actual. Los KPIs corporativos de Proyectos sí pueden incluir Orlando Martínez y Ana Margarita Sahagún.")
+
+    elif view_selected == "Ingresos Comprometidos":
+        render_backlog_view(backlog, project_monthly_target * 12 * engineers)
+
+    else:  # Tienda
+        st.markdown('<div class="section-title">Unidad de negocio: Tienda</div>', unsafe_allow_html=True)
+        trend_note("Esta vista muestra ventas mensuales, conciliación y clientes principales. Tienda usa Total como venta y excluye registros cancelados.")
+
+        monthly_chart(
+            store_base,
+            "Ventas mensuales tienda",
+            "Ventas_MXN",
+            key="monthly_tienda_v56",
+            detail_label="Tienda"
+        )
+        if display_mode == "Análisis":
+            monthly_summary_table(store_base, "Resumen mensual de ventas tienda (MXN)", "Ventas_MXN")
+
+        st.markdown('<div class="section-title">Clientes tienda</div>', unsafe_allow_html=True)
+        if not store_year.empty:
+            cli = store_year.groupby("Cliente", as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
+            cli["Margen_Bruto_Pct"] = cli["Utilidad_Bruta_MXN"] / cli["Ventas_MXN"].replace(0,pd.NA) * 100
+            fig = px.bar(cli.sort_values("Ventas_MXN", ascending=False).head(10).sort_values("Ventas_MXN"), x="Ventas_MXN", y="Cliente", orientation="h", title="Top 10 clientes tienda", color_discrete_sequence=["#123E70"])
+            fig.update_traces(hovertemplate="%{y}<br>$%{x:,.0f}<extra></extra>")
             style_exec_chart(fig, height=430, money_axis=False, legend=False)
             fig.update_xaxes(tickprefix="$", tickformat=",.0f")
             st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
-        with c_rank2:
-            fig = px.scatter(
-                prom, x="Ventas_MXN", y="Margen_Bruto_Pct", size="Utilidad_Bruta_MXN", color="Promotor",
-                title="Ventas vs margen bruto por promotor",
-                hover_data=["Clientes","Cumplimiento_YTD_Pct"]
+            cli_show = cli.sort_values("Ventas_MXN", ascending=False).head(25).copy()
+            premium_simple_table(
+                cli_show,
+                "Ranking Ejecutivo de Clientes Tienda",
+                "Principales clientes por ventas, utilidad y margen dentro del periodo seleccionado.",
+                columns=[
+                    ("Cliente", "Cliente", "text"),
+                    ("Ventas_MXN", "Ventas", "money"),
+                    ("Utilidad_Bruta_MXN", "Utilidad", "money"),
+                    ("Margen_Bruto_Pct", "Margen", "pct"),
+                ],
+                row_class_fn=lambda row, idx: "highlight-row" if idx == cli_show.index[0] else ""
             )
-            style_exec_chart(fig, height=430, money_axis=False, legend=True)
-            fig.update_xaxes(tickprefix="$", tickformat=",.0f")
-            fig.update_yaxes(ticksuffix="%")
-            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
-
-        st.markdown('<div class="section-title">Ranking Comercial INTEREY</div>', unsafe_allow_html=True)
-        st.caption("Lectura ejecutiva por ingeniero: ventas acumuladas, utilidad bruta, margen y avance contra meta.")
-        premium_engineer_table(prom)
-
-        st.markdown('<div class="section-title">Heatmap mensual de cumplimiento por promotor</div>', unsafe_allow_html=True)
-        prom_month = performance_base[(performance_base["Año"] == selected_year) & (performance_base["Mes_Num"].isin(months_ytd))].groupby(["Promotor","Mes_Num"], as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
-        prom_month["Cumplimiento_Pct"] = prom_month["Ventas_MXN"] / project_monthly_target * 100 if project_monthly_target else 0
-        prom_month["Mes"] = prom_month["Mes_Num"].map(MONTHS_ES)
-        heat_table = prom_month.pivot_table(index="Promotor", columns="Mes", values="Cumplimiento_Pct", aggfunc="mean").reindex(columns=[MONTHS_ES[m] for m in months_ytd])
-        if not heat_table.empty:
-            fig_heat = px.imshow(
-                heat_table.fillna(0),
-                labels=dict(x="Mes", y="Promotor", color="% Cumplimiento"),
-                color_continuous_scale=[(0.0, "#DC2626"), (0.6, "#F59E0B"), (1.0, "#16A34A")],
-                aspect="auto",
-                zmin=0,
-                zmax=max(float(prom_month["Cumplimiento_Pct"].max()) if not prom_month.empty else 100, 100)
-            )
-            fig_heat.update_layout(height=410, margin=dict(l=20,r=20,t=35,b=35), paper_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_heat, use_container_width=True, config=PLOT_CONFIG)
-
-        st.markdown('<div class="section-title">Detalle ejecutivo por ingeniero / promotor</div>', unsafe_allow_html=True)
-        focus = st.selectbox("Selecciona ingeniero / promotor", sorted(performance_year["Promotor"].dropna().unique().tolist()), key="promotor_detalle_v40")
-        focus_year = performance_year[performance_year["Promotor"] == focus].copy()
-        f_ventas = focus_year["Ventas_MXN"].sum()
-        f_util = focus_year["Utilidad_Bruta_MXN"].sum()
-        f_margen = f_util / f_ventas * 100 if f_ventas else 0
-        f_meta_ytd = project_monthly_target * len(months_ytd)
-        f_cump = f_ventas / f_meta_ytd * 100 if f_meta_ytd else 0
-        _, f_cump_style, f_cump_status = status_from_pct(f_cump, green=100, yellow=80)
-        cdet = st.columns(5)
-        with cdet[0]: st.markdown(card(f"Ventas · {focus}", fmt_money(f_ventas), "acumulado meses seleccionados"), unsafe_allow_html=True)
-        with cdet[1]: st.markdown(card("Utilidad bruta", fmt_money(f_util), f"Margen: {fmt_pct(f_margen)}", "green" if f_util >= 0 else "red"), unsafe_allow_html=True)
-        with cdet[2]: st.markdown(card("Meta YTD", fmt_money(f_meta_ytd), f"{fmt_money(project_monthly_target)} × {len(months_ytd)} meses", "gray"), unsafe_allow_html=True)
-        with cdet[3]: st.markdown(card("Cumplimiento YTD", fmt_pct(f_cump), f"{f_cump_status}", f_cump_style), unsafe_allow_html=True)
-        with cdet[4]: st.markdown(card("Diferencia vs meta", fmt_money_signed(f_ventas - f_meta_ytd), "positivo = arriba de meta", "green" if f_ventas >= f_meta_ytd else "red"), unsafe_allow_html=True)
-
-        detail = prom_month[prom_month["Promotor"] == focus].copy().sort_values("Mes_Num")
-        detail["Meta_Mensual"] = project_monthly_target
-        detail["Diferencia_Meta_MXN"] = detail["Ventas_MXN"] - detail["Meta_Mensual"]
-        detail["Estado"] = detail["Cumplimiento_Pct"].apply(lambda x: "Cumplió" if pd.notna(x) and x >= 100 else ("Cerca" if pd.notna(x) and x >= 80 else "No cumplió"))
-        cdet_g1, cdet_g2 = st.columns(2)
-        with cdet_g1:
-            fig_focus = px.line(detail, x="Mes_Num", y="Ventas_MXN", markers=True, title=f"Ventas mensuales · {focus}")
-            fig_focus.update_layout(xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER))
-            fig_focus.add_hline(y=project_monthly_target, line_dash="dash", line_color="#475569")
-            style_exec_chart(fig_focus, height=410, money_axis=True, legend=False)
-            st.plotly_chart(fig_focus, use_container_width=True, config=PLOT_CONFIG)
-        with cdet_g2:
-            fig_focus2 = px.bar(detail, x="Mes", y="Cumplimiento_Pct", title=f"Cumplimiento mensual · {focus}")
-            fig_focus2.add_hline(y=100, line_dash="dash", line_color="#475569")
-            style_exec_chart(fig_focus2, height=410, money_axis=False, legend=False)
-            fig_focus2.update_yaxes(ticksuffix="%")
-            st.plotly_chart(fig_focus2, use_container_width=True, config=PLOT_CONFIG)
-        show_detail = detail[["Mes","Ventas_MXN","Utilidad_Bruta_MXN","Meta_Mensual","Diferencia_Meta_MXN","Cumplimiento_Pct","Estado"]].copy()
-        premium_simple_table(
-            show_detail,
-            "Detalle Mensual del Ingeniero Seleccionado",
-            "Comparativo mensual contra meta: ventas, utilidad bruta, avance y diferencia.",
-            columns=[
-                ("Mes", "Mes", "text"),
-                ("Ventas_MXN", "Ventas", "money"),
-                ("Utilidad_Bruta_MXN", "Utilidad bruta", "money"),
-                ("Meta_Mensual", "Meta mensual", "money"),
-                ("Diferencia_Meta_MXN", "Diferencia vs meta", "money_signed"),
-                ("Cumplimiento_Pct", "Avance", "pct"),
-                ("Estado", "Estado", "text"),
-            ],
-            row_class_fn=lambda row, idx: "highlight-row" if str(row.get("Estado","")) == "Cumplió" else ("warn-row" if str(row.get("Estado","")) == "Cerca" else "risk-row")
-        )
-    else:
-        st.info("No hay datos de ingenieros/promotores comparables para el filtro actual. Los KPIs corporativos de Proyectos sí pueden incluir Orlando Martínez y Ana Margarita Sahagún.")
-
-elif view_selected == "Ingresos Comprometidos":
-    render_backlog_view(backlog, project_monthly_target * 12 * engineers)
-
-else:  # Tienda
-    st.markdown('<div class="section-title">Unidad de negocio: Tienda</div>', unsafe_allow_html=True)
-    trend_note("Esta vista muestra ventas mensuales, conciliación y clientes principales. Tienda usa Total como venta y excluye registros cancelados.")
-
-    monthly_chart(
-        store_base,
-        "Ventas mensuales tienda",
-        "Ventas_MXN",
-        key="monthly_tienda_v56",
-        detail_label="Tienda"
-    )
-    if display_mode == "Análisis":
-        monthly_summary_table(store_base, "Resumen mensual de ventas tienda (MXN)", "Ventas_MXN")
-
-    st.markdown('<div class="section-title">Clientes tienda</div>', unsafe_allow_html=True)
-    if not store_year.empty:
-        cli = store_year.groupby("Cliente", as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
-        cli["Margen_Bruto_Pct"] = cli["Utilidad_Bruta_MXN"] / cli["Ventas_MXN"].replace(0,pd.NA) * 100
-        fig = px.bar(cli.sort_values("Ventas_MXN", ascending=False).head(10).sort_values("Ventas_MXN"), x="Ventas_MXN", y="Cliente", orientation="h", title="Top 10 clientes tienda", color_discrete_sequence=["#123E70"])
-        fig.update_traces(hovertemplate="%{y}<br>$%{x:,.0f}<extra></extra>")
-        style_exec_chart(fig, height=430, money_axis=False, legend=False)
-        fig.update_xaxes(tickprefix="$", tickformat=",.0f")
-        st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
-        cli_show = cli.sort_values("Ventas_MXN", ascending=False).head(25).copy()
-        premium_simple_table(
-            cli_show,
-            "Ranking Ejecutivo de Clientes Tienda",
-            "Principales clientes por ventas, utilidad y margen dentro del periodo seleccionado.",
-            columns=[
-                ("Cliente", "Cliente", "text"),
-                ("Ventas_MXN", "Ventas", "money"),
-                ("Utilidad_Bruta_MXN", "Utilidad", "money"),
-                ("Margen_Bruto_Pct", "Margen", "pct"),
-            ],
-            row_class_fn=lambda row, idx: "highlight-row" if idx == cli_show.index[0] else ""
-        )
-    else:
-        st.info("No hay datos de tienda para el filtro actual.")
-
-with st.expander("Auditoría avanzada de datos filtrados"):
-    st.caption("Se muestran datos desde 01/ene/2024 hasta la fecha más reciente encontrada en los archivos cargados.")
-    if view_selected == "Proyectos":
-        cols = [c for c in ["Id","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Descripcion","Moneda","TC","Tipo_Cambio_Aplicado","Cotizado cliente","Ventas_MXN","Utilidad bruta","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in projects.columns]
-        st.dataframe(projects[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
-    elif view_selected == "Tienda":
-        cols = [c for c in ["Fecha","Año","Mes_Num","Mes","Status","Status_Normalizado","Cliente","Pago","SubTotal","Ventas_MXN","Util $","Utilidad_Bruta_MXN","Margen_Bruto_Pct","Total"] if c in store.columns]
-        st.dataframe(store[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
-    elif view_selected == "Ingresos Comprometidos":
-        if backlog.empty:
-            st.info("No hay datos de ingresos comprometidos para auditar.")
         else:
-            cols = [c for c in ["Id","Fecha_OC","Dias_Abiertos","Antigüedad","Promotor","Cliente","Descripcion","Moneda","TC","Cotizado cliente","Importe_Pendiente_MXN","Status"] if c in backlog.columns]
-            st.dataframe(backlog[cols].sort_values("Dias_Abiertos", ascending=False), use_container_width=True, hide_index=True)
-    else:
-        cols = [c for c in ["Unidad","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Ventas_MXN","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in combined_year.columns]
-        st.dataframe(combined_year[cols].sort_values(["Unidad","Fecha"], ascending=[True,False]), use_container_width=True, hide_index=True)
+            st.info("No hay datos de tienda para el filtro actual.")
+
+    with st.expander("Auditoría avanzada de datos filtrados"):
+        st.caption("Se muestran datos desde 01/ene/2024 hasta la fecha más reciente encontrada en los archivos cargados.")
+        if view_selected == "Proyectos":
+            cols = [c for c in ["Id","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Descripcion","Moneda","TC","Tipo_Cambio_Aplicado","Cotizado cliente","Ventas_MXN","Utilidad bruta","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in projects.columns]
+            st.dataframe(projects[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
+        elif view_selected == "Tienda":
+            cols = [c for c in ["Fecha","Año","Mes_Num","Mes","Status","Status_Normalizado","Cliente","Pago","SubTotal","Ventas_MXN","Util $","Utilidad_Bruta_MXN","Margen_Bruto_Pct","Total"] if c in store.columns]
+            st.dataframe(store[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
+        elif view_selected == "Ingresos Comprometidos":
+            if backlog.empty:
+                st.info("No hay datos de ingresos comprometidos para auditar.")
+            else:
+                cols = [c for c in ["Id","Fecha_OC","Dias_Abiertos","Antigüedad","Promotor","Cliente","Descripcion","Moneda","TC","Cotizado cliente","Importe_Pendiente_MXN","Status"] if c in backlog.columns]
+                st.dataframe(backlog[cols].sort_values("Dias_Abiertos", ascending=False), use_container_width=True, hide_index=True)
+        else:
+            cols = [c for c in ["Unidad","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Ventas_MXN","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in combined_year.columns]
+            st.dataframe(combined_year[cols].sort_values(["Unidad","Fecha"], ascending=[True,False]), use_container_width=True, hide_index=True)
+
+
+
+render_dashboard_body()
 
 with st.expander("ℹ️ Información metodológica"):
     st.markdown("""
@@ -2298,6 +2323,7 @@ with st.expander("ℹ️ Información metodológica"):
     - Ingresos comprometidos usa el snapshot vigente de proyectos con **OC aprobada**, en ejecución y pendientes de facturar.
     - La antigüedad se calcula desde la fecha de recepción de la OC hasta la fecha actual.
     - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
+    - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v61 NEXT LEVEL · Gráficas ejecutivas interactivas · Drill-down por clic · Modo Dirección/Análisis · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v62 NEXT LEVEL · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
