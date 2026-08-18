@@ -1116,17 +1116,89 @@ def _selected_plotly_point(event):
     return None
 
 
-def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True):
+@st.fragment
+def render_month_explorer_fragment(df, monthly, selected_ref, key, detail_label):
     """
-    Gráfica mensual ejecutiva estable + Explorador Mensual.
+    Fragmento independiente:
+    al cambiar año/mes, SOLO se vuelve a ejecutar el Explorador Mensual.
+    La gráfica y el resto del dashboard permanecen visibles y estables.
+    """
+    years = sorted(monthly["Año"].dropna().astype(int).unique().tolist())
+    if not years:
+        return
 
-    La visual permanece en Plotly porque es la versión que ya validamos visualmente.
-    La navegación del drill-down se hace con controles segmentados nativos de
-    Streamlit para que la interacción sea confiable en producción.
+    st.markdown(
+        '<div style="font-size:.82rem;font-weight:850;color:#0B1F4D;'
+        'margin-top:-4px;margin-bottom:4px;">🔎 Explorador mensual</div>',
+        unsafe_allow_html=True
+    )
+    st.caption("Selecciona año y mes. El detalle se actualiza en este mismo bloque.")
+
+    default_year = selected_ref if selected_ref in years else max(years)
+
+    if len(years) > 1:
+        explore_year = st.segmented_control(
+            "Año a explorar",
+            options=years,
+            default=default_year,
+            selection_mode="single",
+            required=True,
+            key=f"{key}_explore_year",
+            label_visibility="collapsed",
+            width="content",
+        )
+    else:
+        explore_year = years[0]
+
+    available_months = sorted(
+        monthly.loc[monthly["Año"] == int(explore_year), "Mes_Num"]
+        .dropna()
+        .astype(int)
+        .unique()
+        .tolist()
+    )
+
+    if not available_months:
+        return
+
+    month_key = f"{key}_explore_month_{int(explore_year)}"
+    default_month = max(available_months)
+
+    explore_month = st.segmented_control(
+        "Mes a explorar",
+        options=available_months,
+        default=default_month,
+        selection_mode="single",
+        required=True,
+        format_func=lambda m: MONTHS_ES.get(int(m), str(m)),
+        key=month_key,
+        label_visibility="collapsed",
+        width="stretch",
+    )
+
+    if explore_month is None:
+        return
+
+    # El detalle vive dentro del fragmento para que cambie sin reconstruir la página.
+    render_month_drilldown(
+        df,
+        int(explore_year),
+        int(explore_month),
+        detail_label
+    )
+
+
+def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True, detail_label="Detalle mensual"):
+    """
+    Gráfica mensual ejecutiva estable + Explorador Mensual con transición suave.
+
+    La gráfica permanece fuera del fragmento.
+    Año, mes y detalle viven dentro de @st.fragment, por lo que al cambiar
+    la selección no desaparece ni se reconstruye el resto del dashboard.
     """
     if df.empty:
         st.info("No hay datos para graficar.")
-        return None
+        return
 
     monthly = df.groupby(["Año", "Mes_Num"], as_index=False).agg(
         Ventas_MXN=("Ventas_MXN", "sum"),
@@ -1187,7 +1259,6 @@ def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True):
             "<extra></extra>"
         )
 
-    # Hover consolidado por mes: mantiene la lectura comparativa que ya gustó.
     fig.update_layout(hovermode="x unified")
     fig.update_xaxes(
         tickmode="array",
@@ -1203,63 +1274,14 @@ def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True):
         key=f"{key}_chart" if key else None,
     )
 
-    if not interactive or not key:
-        return None
-
-    # ---------- EXPLORADOR MENSUAL ----------
-    st.markdown(
-        '<div style="font-size:.82rem;font-weight:850;color:#0B1F4D;'
-        'margin-top:-4px;margin-bottom:4px;">🔎 Explorador mensual</div>',
-        unsafe_allow_html=True
-    )
-    st.caption("Selecciona año y mes para abrir el detalle ejecutivo sin salir de la gráfica.")
-
-    default_year = selected_ref if selected_ref in years else (max(years) if years else None)
-
-    if len(years) > 1:
-        explore_year = st.segmented_control(
-            "Año a explorar",
-            options=years,
-            default=default_year,
-            selection_mode="single",
-            required=True,
-            key=f"{key}_explore_year",
-            label_visibility="collapsed",
-            width="content",
+    if interactive and key:
+        render_month_explorer_fragment(
+            df=df,
+            monthly=monthly,
+            selected_ref=selected_ref,
+            key=key,
+            detail_label=detail_label,
         )
-    else:
-        explore_year = years[0] if years else default_year
-
-    available_months = sorted(
-        monthly.loc[monthly["Año"] == int(explore_year), "Mes_Num"]
-        .dropna()
-        .astype(int)
-        .unique()
-        .tolist()
-    )
-
-    if not available_months:
-        return None
-
-    # El último mes con información queda preseleccionado.
-    default_month = max(available_months)
-
-    explore_month = st.segmented_control(
-        "Mes a explorar",
-        options=available_months,
-        default=default_month,
-        selection_mode="single",
-        required=True,
-        format_func=lambda m: MONTHS_ES.get(int(m), str(m)),
-        key=f"{key}_explore_month_{int(explore_year)}",
-        label_visibility="collapsed",
-        width="stretch",
-    )
-
-    if explore_month is None:
-        return None
-
-    return int(explore_year), int(explore_month)
 
 
 def render_month_drilldown(df, year, month, label="Detalle mensual"):
@@ -2020,9 +2042,13 @@ elif view_selected == "Consolidado":
     trend_note("Se eliminó el puente de utilidad en esta vista para mantener el consolidado más limpio. La utilidad neta ya se resume en las tarjetas superiores y en el comparativo ejecutivo.")
 
     st.markdown('<div class="section-title">Evolución mensual consolidada</div>', unsafe_allow_html=True)
-    selected_period = monthly_chart(combined_base, "Ventas mensuales consolidadas", "Ventas_MXN", key="monthly_consolidado_v56")
-    if selected_period:
-        render_month_drilldown(combined_base, selected_period[0] or selected_year, selected_period[1], "Consolidado")
+    monthly_chart(
+        combined_base,
+        "Ventas mensuales consolidadas",
+        "Ventas_MXN",
+        key="monthly_consolidado_v56",
+        detail_label="Consolidado"
+    )
     if display_mode == "Análisis":
         monthly_summary_table(combined_base, "Resumen mensual de ventas consolidadas (MXN)", "Ventas_MXN")
 
@@ -2069,9 +2095,13 @@ elif view_selected == "Proyectos":
     st.markdown('<div class="section-title">Unidad de negocio: Proyectos</div>', unsafe_allow_html=True)
     trend_note("Esta vista muestra ventas mensuales, conciliación y desempeño comercial del equipo. Orlando Martínez y Ana Margarita Sahagún suman en KPIs corporativos, pero no participan en el comparativo de ingenieros.")
 
-    selected_period = monthly_chart(projects_base, "Ventas mensuales proyectos", "Ventas_MXN", key="monthly_proyectos_v56")
-    if selected_period:
-        render_month_drilldown(projects_base, selected_period[0] or selected_year, selected_period[1], "Proyectos")
+    monthly_chart(
+        projects_base,
+        "Ventas mensuales proyectos",
+        "Ventas_MXN",
+        key="monthly_proyectos_v56",
+        detail_label="Proyectos"
+    )
     if display_mode == "Análisis":
         monthly_summary_table(projects_base, "Resumen mensual de ventas proyectos (MXN)", "Ventas_MXN")
 
@@ -2204,9 +2234,13 @@ else:  # Tienda
     st.markdown('<div class="section-title">Unidad de negocio: Tienda</div>', unsafe_allow_html=True)
     trend_note("Esta vista muestra ventas mensuales, conciliación y clientes principales. Tienda usa Total como venta y excluye registros cancelados.")
 
-    selected_period = monthly_chart(store_base, "Ventas mensuales tienda", "Ventas_MXN", key="monthly_tienda_v56")
-    if selected_period:
-        render_month_drilldown(store_base, selected_period[0] or selected_year, selected_period[1], "Tienda")
+    monthly_chart(
+        store_base,
+        "Ventas mensuales tienda",
+        "Ventas_MXN",
+        key="monthly_tienda_v56",
+        detail_label="Tienda"
+    )
     if display_mode == "Análisis":
         monthly_summary_table(store_base, "Resumen mensual de ventas tienda (MXN)", "Ventas_MXN")
 
@@ -2266,4 +2300,4 @@ with st.expander("ℹ️ Información metodológica"):
     - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
     """)
 
-st.caption("Versión v60 NEXT LEVEL · Gráficas ejecutivas interactivas · Drill-down por clic · Modo Dirección/Análisis · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v61 NEXT LEVEL · Gráficas ejecutivas interactivas · Drill-down por clic · Modo Dirección/Análisis · Gastos validados · Backlog Ejecutivo.")
