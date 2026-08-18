@@ -256,6 +256,28 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
     .radar-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
     .hero-date{text-align:left;}
 }
+
+
+/* NEXT LEVEL v56 */
+.exec-pulse-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 18px 0;}
+.exec-pulse{background:#FFFFFF;border:1px solid rgba(18,62,112,.12);border-radius:16px;padding:12px 14px;box-shadow:0 7px 18px rgba(15,23,42,.045);position:relative;overflow:hidden;}
+.exec-pulse:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--interey-blue);}
+.exec-pulse.green:before{background:var(--interey-green);}.exec-pulse.red:before{background:var(--interey-red);}.exec-pulse.yellow:before{background:var(--interey-yellow);}.exec-pulse.gray:before{background:var(--interey-gray);}
+.exec-pulse-label{font-size:.70rem;text-transform:uppercase;letter-spacing:.075em;color:#64748B;font-weight:900;}
+.exec-pulse-value{font-size:1.18rem;color:#0B1F4D;font-weight:950;margin-top:5px;line-height:1.08;}
+.exec-pulse-sub{font-size:.76rem;color:#64748B;margin-top:5px;line-height:1.28;}
+.drill-wrap{background:linear-gradient(135deg,#F8FAFC 0%,#FFFFFF 100%);border:1px solid rgba(18,62,112,.14);border-radius:20px;padding:15px 16px;margin:10px 0 18px 0;box-shadow:0 8px 22px rgba(15,23,42,.05);}
+.drill-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;}
+.drill-title{font-size:1.02rem;font-weight:950;color:#0B1F4D;}.drill-sub{font-size:.77rem;color:#64748B;}
+.drill-badge{background:#EAF2FB;border:1px solid rgba(18,62,112,.16);color:#123E70;border-radius:999px;padding:6px 10px;font-size:.73rem;font-weight:900;white-space:nowrap;}
+.drill-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;}
+.drill-tile{background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:10px 11px;}
+.drill-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:#64748B;font-weight:850;}
+.drill-value{font-size:1.02rem;color:#0B1F4D;font-weight:950;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.drill-note{font-size:.72rem;color:#64748B;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media (max-width:1200px){.exec-pulse-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.drill-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:760px){.exec-pulse-grid,.drill-grid{grid-template-columns:1fr;}.drill-head{display:block;}.drill-badge{display:inline-block;margin-top:8px;}}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -1026,14 +1048,205 @@ def forecast_block(label, df_ytd, gastos_dict, meta_mensual, months_ytd, multipl
     }
 
 
-def monthly_chart(df, title, ycol="Ventas_MXN"):
+def style_exec_chart(fig, height=390, money_axis=False, legend=True):
+    """Estilo gráfico ejecutivo INTEREY consistente y limpio."""
+    fig.update_layout(
+        template="plotly_white",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=height,
+        margin=dict(l=20, r=18, t=60, b=38),
+        font=dict(color="#334155", family="Arial"),
+        title=dict(font=dict(size=17, color="#0B1F4D"), x=0.01, xanchor="left"),
+        hoverlabel=dict(bgcolor="#0B1F4D", font_color="#FFFFFF"),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1,
+            title_text=""
+        ) if legend else dict(visible=False),
+    )
+    fig.update_xaxes(showgrid=False, linecolor="#DCE3EC", tickfont=dict(color="#64748B"), title_text="")
+    fig.update_yaxes(gridcolor="#E9EEF5", zeroline=False, tickfont=dict(color="#64748B"), title_text="")
+    if money_axis:
+        fig.update_yaxes(tickprefix="$", tickformat=",.0f")
+    return fig
+
+
+PLOT_CONFIG = {"displayModeBar": False, "responsive": True}
+
+
+def _selected_plotly_point(event):
+    """Obtiene customdata de una selección Plotly sin depender de una versión específica."""
+    if event is None:
+        return None
+    try:
+        selection = event.get("selection", {}) if hasattr(event, "get") else getattr(event, "selection", {})
+        points = selection.get("points", []) if hasattr(selection, "get") else getattr(selection, "points", [])
+        if not points:
+            return None
+        point = points[0]
+        if hasattr(point, "get"):
+            custom = point.get("customdata")
+            x = point.get("x")
+        else:
+            custom = getattr(point, "customdata", None)
+            x = getattr(point, "x", None)
+        if custom and len(custom) >= 2:
+            return int(custom[0]), int(custom[1])
+        if x is not None:
+            return None, int(x)
+    except Exception:
+        return None
+    return None
+
+
+def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True):
+    """Gráfica mensual premium. Clic en un punto = drill-down del mes seleccionado."""
     if df.empty:
         st.info("No hay datos para graficar.")
+        return None
+
+    monthly = df.groupby(["Año", "Mes_Num"], as_index=False).agg(
+        Ventas_MXN=("Ventas_MXN", "sum"),
+        Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN", "sum")
+    )
+    monthly["Año_Texto"] = monthly["Año"].astype(int).astype(str)
+
+    years = sorted(monthly["Año"].dropna().astype(int).unique().tolist())
+    selected_ref = globals().get("selected_year", max(years) if years else None)
+    color_map = {}
+    muted = ["#94A3B8", "#64748B", "#CBD5E1"]
+    muted_i = 0
+    for y in years:
+        if y == selected_ref:
+            color_map[str(y)] = "#123E70"
+        else:
+            color_map[str(y)] = muted[muted_i % len(muted)]
+            muted_i += 1
+
+    fig = px.line(
+        monthly,
+        x="Mes_Num",
+        y=ycol,
+        color="Año_Texto",
+        markers=True,
+        title=title,
+        color_discrete_map=color_map,
+        custom_data=["Año", "Mes_Num"],
+        labels={ycol: "Importe", "Año_Texto": "Año"},
+    )
+    for trace in fig.data:
+        try:
+            trace_year = int(trace.name)
+        except Exception:
+            trace_year = None
+        if trace_year == selected_ref:
+            trace.update(line=dict(width=4), marker=dict(size=9), opacity=1)
+        else:
+            trace.update(line=dict(width=2), marker=dict(size=6), opacity=.48)
+        trace.hovertemplate = "<b>%{fullData.name}</b><br>%{x}<br>$%{y:,.0f}<extra></extra>"
+
+    fig.update_layout(hovermode="x unified")
+    fig.update_xaxes(tickmode="array", tickvals=list(range(1,13)), ticktext=MONTH_ORDER)
+    style_exec_chart(fig, height=410, money_axis=True, legend=True)
+
+    if interactive and key:
+        try:
+            event = st.plotly_chart(
+                fig,
+                use_container_width=True,
+                config=PLOT_CONFIG,
+                on_select="rerun",
+                selection_mode="points",
+                key=key,
+            )
+            return _selected_plotly_point(event)
+        except TypeError:
+            # Compatibilidad con versiones antiguas de Streamlit.
+            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG, key=key)
+            return None
+    st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG, key=key)
+    return None
+
+
+def render_month_drilldown(df, year, month, label="Detalle mensual"):
+    if year is None:
+        year = globals().get("selected_year")
+    if year is None or month is None:
         return
-    monthly = df.groupby(["Año", "Mes_Num"], as_index=False).agg(Ventas_MXN=("Ventas_MXN", "sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN", "sum"))
-    fig = px.line(monthly, x="Mes_Num", y=ycol, color="Año", markers=True, title=title)
-    fig.update_layout(xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER))
-    st.plotly_chart(fig, use_container_width=True)
+    detail = df[(df["Año"] == int(year)) & (df["Mes_Num"] == int(month))].copy()
+    if detail.empty:
+        return
+
+    ventas = float(detail["Ventas_MXN"].sum())
+    utilidad = float(detail["Utilidad_Bruta_MXN"].sum())
+    margen = (utilidad / ventas * 100) if ventas else 0
+    clientes = int(detail["Cliente"].nunique()) if "Cliente" in detail.columns else 0
+    operaciones = int(len(detail))
+    top_client = "Sin dato"
+    top_client_amount = 0.0
+    if "Cliente" in detail.columns:
+        top = detail.groupby("Cliente", as_index=False)["Ventas_MXN"].sum().sort_values("Ventas_MXN", ascending=False)
+        if not top.empty:
+            top_client = str(top.iloc[0]["Cliente"])
+            top_client_amount = float(top.iloc[0]["Ventas_MXN"])
+
+    month_label = MONTHS_ES.get(int(month), str(month))
+    html = f"""
+    <div class="drill-wrap">
+        <div class="drill-head">
+            <div>
+                <div class="drill-title">🔎 {label} · {month_label} {int(year)}</div>
+                <div class="drill-sub">Seleccionaste este punto en la gráfica. El panel se actualiza automáticamente.</div>
+            </div>
+            <div class="drill-badge">CLICK-TO-EXPLORE</div>
+        </div>
+        <div class="drill-grid">
+            <div class="drill-tile"><div class="drill-label">Ventas</div><div class="drill-value">{fmt_money(ventas)}</div><div class="drill-note">Ingreso del mes</div></div>
+            <div class="drill-tile"><div class="drill-label">Utilidad bruta</div><div class="drill-value">{fmt_money(utilidad)}</div><div class="drill-note">Margen {fmt_pct(margen)}</div></div>
+            <div class="drill-tile"><div class="drill-label">Clientes</div><div class="drill-value">{clientes:,}</div><div class="drill-note">Clientes únicos</div></div>
+            <div class="drill-tile"><div class="drill-label">Operaciones</div><div class="drill-value">{operaciones:,}</div><div class="drill-note">Registros del periodo</div></div>
+            <div class="drill-tile"><div class="drill-label">Cliente principal</div><div class="drill-value">{top_client}</div><div class="drill-note">{fmt_money(top_client_amount)}</div></div>
+        </div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_executive_pulse(combined_df, selected_year, months_ytd, fc):
+    """Pulso ejecutivo de 10 segundos: crecimiento, mejor mes, margen y ritmo requerido."""
+    current = combined_df[(combined_df["Año"] == selected_year) & (combined_df["Mes_Num"].isin(months_ytd))].copy()
+    prev_year = selected_year - 1
+    previous = combined_df[(combined_df["Año"] == prev_year) & (combined_df["Mes_Num"].isin(months_ytd))].copy()
+    curr_sales = float(current["Ventas_MXN"].sum()) if not current.empty else 0
+    prev_sales = float(previous["Ventas_MXN"].sum()) if not previous.empty else 0
+    yoy_pct = yoy(curr_sales, prev_sales)
+
+    month_sales = current.groupby("Mes_Num", as_index=False)["Ventas_MXN"].sum() if not current.empty else pd.DataFrame()
+    if not month_sales.empty:
+        best = month_sales.sort_values("Ventas_MXN", ascending=False).iloc[0]
+        best_month = MONTHS_ES.get(int(best["Mes_Num"]), "-")
+        best_amount = float(best["Ventas_MXN"])
+    else:
+        best_month, best_amount = "-", 0
+
+    margin = float(fc.get("margen_neto_ytd", 0))
+    needed = float(fc.get("venta_req", 0))
+    gap = float(fc.get("gap", 0))
+
+    yoy_style = "green" if yoy_pct is not None and yoy_pct >= 0 else "red"
+    margin_style = "green" if margin >= 0 else "red"
+    needed_style = "green" if gap >= 0 else "yellow"
+    yoy_text = fmt_pct(yoy_pct) if yoy_pct is not None else "Sin base"
+
+    html = f"""
+    <div class="exec-pulse-grid">
+        <div class="exec-pulse {yoy_style}"><div class="exec-pulse-label">Variación YTD vs {prev_year}</div><div class="exec-pulse-value">{yoy_text}</div><div class="exec-pulse-sub">Mismos meses comparables</div></div>
+        <div class="exec-pulse"><div class="exec-pulse-label">Mejor mes del periodo</div><div class="exec-pulse-value">{best_month} · {fmt_money(best_amount)}</div><div class="exec-pulse-sub">Mayor ingreso mensual acumulado</div></div>
+        <div class="exec-pulse {margin_style}"><div class="exec-pulse-label">Margen neto YTD</div><div class="exec-pulse-value">{fmt_pct(margin)}</div><div class="exec-pulse-sub">Después de gastos administrativos cargados</div></div>
+        <div class="exec-pulse {needed_style}"><div class="exec-pulse-label">Ritmo mensual requerido</div><div class="exec-pulse-value">{fmt_money(needed)}</div><div class="exec-pulse-sub">Para alcanzar la meta anual</div></div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
 
 
 def monthly_summary_table(df, title="Resumen mensual de ventas (MXN)", ycol="Ventas_MXN"):
@@ -1204,7 +1417,7 @@ def premium_simple_table(df, title, caption="", columns=None, row_class_fn=None)
 
 
 
-def render_executive_summary(consol_fc, proj_fc, store_fc):
+def render_executive_summary(consol_fc, proj_fc, store_fc, show_table=True):
     """Vista 0 tipo CEO: lectura ejecutiva sin exceso de gráficas ni scroll."""
     cumplimiento = consol_fc.get("cumplimiento", 0)
     emoji, style, status = status_from_pct(cumplimiento)
@@ -1264,23 +1477,24 @@ def render_executive_summary(consol_fc, proj_fc, store_fc):
     """
     st.markdown(html, unsafe_allow_html=True)
 
-    mini = pd.DataFrame([
-        {"Unidad":"🔵 Proyectos", "Ventas":proj_fc["ventas_ytd"], "Participación %":proj_share, "Cumplimiento %":proj_fc.get("cumplimiento",0), "Faltante/Excedente":proj_fc.get("gap",0)},
-        {"Unidad":"🟢 Tienda", "Ventas":store_fc["ventas_ytd"], "Participación %":store_share, "Cumplimiento %":store_fc.get("cumplimiento",0), "Faltante/Excedente":store_fc.get("gap",0)},
-    ])
-    premium_simple_table(
-        mini,
-        "Mini comparativo ejecutivo",
-        "Vista compacta para dirección: aportación de cada unidad y avance proyectado contra su meta.",
-        columns=[
-            ("Unidad", "Unidad", "text"),
-            ("Ventas", "Ventas YTD", "money"),
-            ("Participación %", "Participación", "pct"),
-            ("Cumplimiento %", "Avance proyectado", "pct"),
-            ("Faltante/Excedente", "Faltante / excedente", "money_signed"),
-        ],
-        row_class_fn=lambda row, idx: "highlight-row" if "Proyectos" in str(row.get("Unidad","")) else ""
-    )
+    if show_table:
+        mini = pd.DataFrame([
+            {"Unidad":"🔵 Proyectos", "Ventas":proj_fc["ventas_ytd"], "Participación %":proj_share, "Cumplimiento %":proj_fc.get("cumplimiento",0), "Faltante/Excedente":proj_fc.get("gap",0)},
+            {"Unidad":"🟢 Tienda", "Ventas":store_fc["ventas_ytd"], "Participación %":store_share, "Cumplimiento %":store_fc.get("cumplimiento",0), "Faltante/Excedente":store_fc.get("gap",0)},
+        ])
+        premium_simple_table(
+            mini,
+            "Mini comparativo ejecutivo",
+            "Vista compacta para dirección: aportación de cada unidad y avance proyectado contra su meta.",
+            columns=[
+                ("Unidad", "Unidad", "text"),
+                ("Ventas", "Ventas YTD", "money"),
+                ("Participación %", "Participación", "pct"),
+                ("Cumplimiento %", "Avance proyectado", "pct"),
+                ("Faltante/Excedente", "Faltante / excedente", "money_signed"),
+            ],
+            row_class_fn=lambda row, idx: "highlight-row" if "Proyectos" in str(row.get("Unidad","")) else ""
+        )
 
 
 def render_dynamic_executive_view(view_name, fc, monthly_target_note=""):
@@ -1460,7 +1674,8 @@ def render_backlog_view(backlog_df, annual_project_target):
     with g1:
         fig_age = px.bar(aging, x="Antigüedad", y="Importe", text="Proyectos", title="Importe comprometido por antigüedad", category_orders={"Antigüedad": order})
         fig_age.update_traces(texttemplate="%{text} proyectos", textposition="outside")
-        st.plotly_chart(fig_age, use_container_width=True)
+        style_exec_chart(fig_age, height=410, money_axis=True, legend=False)
+        st.plotly_chart(fig_age, use_container_width=True, config=PLOT_CONFIG)
     with g2:
         top_clients = client_summary.head(10).sort_values("Importe", ascending=True)
         fig_clients = px.bar(
@@ -1473,7 +1688,9 @@ def render_backlog_view(backlog_df, annual_project_target):
             hover_data={"Importe": ":,.0f", "Proyectos": True},
         )
         fig_clients.update_traces(texttemplate="%{text} proyectos", textposition="outside")
-        st.plotly_chart(fig_clients, use_container_width=True)
+        style_exec_chart(fig_clients, height=410, money_axis=False, legend=False)
+        fig_clients.update_xaxes(tickprefix="$", tickformat=",.0f")
+        st.plotly_chart(fig_clients, use_container_width=True, config=PLOT_CONFIG)
 
     table = backlog_df.copy().sort_values(["Dias_Abiertos", "Importe_Pendiente_MXN"], ascending=[False, False])
     table["Fecha_OC_Texto"] = table["Fecha_OC"].dt.strftime("%d/%m/%Y")
@@ -1547,6 +1764,15 @@ if period_advanced:
 else:
     selected_months = months_available
     st.sidebar.caption("Periodo automático: " + " · ".join(MONTHS_ES[m] for m in selected_months))
+
+st.sidebar.markdown("## Experiencia")
+display_mode = st.sidebar.radio(
+    "Modo de visualización",
+    ["Dirección", "Análisis"],
+    horizontal=True,
+    key="display_mode_v56",
+    help="Dirección prioriza lectura rápida. Análisis conserva tablas y detalle operativo."
+)
 
 st.sidebar.markdown("## Metas")
 engineers = st.sidebar.number_input("Ingenieros proyectos considerados", min_value=1, value=ACTIVE_PROJECT_ENGINEERS_FOR_TARGET, step=1)
@@ -1654,6 +1880,7 @@ with hc3:
     )
 st.markdown('</div>', unsafe_allow_html=True)
 radar_interey(consol_fc, proj_fc, store_fc)
+render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
 
 # ---------- VISTA EJECUTIVA DINÁMICA ----------
 view_selected = st.radio(
@@ -1675,7 +1902,7 @@ elif view_selected == "Tienda":
 
 # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
 if view_selected == "Resumen Ejecutivo":
-    render_executive_summary(consol_fc, proj_fc, store_fc)
+    render_executive_summary(consol_fc, proj_fc, store_fc, show_table=(display_mode == "Análisis"))
     trend_note("Resumen Ejecutivo no muestra tablas ni gráficas extensas. Para análisis detallado usa Consolidado, Proyectos o Tienda.")
 
 elif view_selected == "Consolidado":
@@ -1694,12 +1921,16 @@ elif view_selected == "Consolidado":
             ]
         }
     ))
-    st.plotly_chart(gauge, use_container_width=True)
+    gauge.update_layout(height=330, margin=dict(l=25,r=25,t=55,b=20), paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#334155"))
+    st.plotly_chart(gauge, use_container_width=True, config=PLOT_CONFIG)
     trend_note("Se eliminó el puente de utilidad en esta vista para mantener el consolidado más limpio. La utilidad neta ya se resume en las tarjetas superiores y en el comparativo ejecutivo.")
 
     st.markdown('<div class="section-title">Evolución mensual consolidada</div>', unsafe_allow_html=True)
-    monthly_chart(combined_base, "Ventas mensuales consolidadas", "Ventas_MXN")
-    monthly_summary_table(combined_base, "Resumen mensual de ventas consolidadas (MXN)", "Ventas_MXN")
+    selected_period = monthly_chart(combined_base, "Ventas mensuales consolidadas", "Ventas_MXN", key="monthly_consolidado_v56")
+    if selected_period:
+        render_month_drilldown(combined_base, selected_period[0] or selected_year, selected_period[1], "Consolidado")
+    if display_mode == "Análisis":
+        monthly_summary_table(combined_base, "Resumen mensual de ventas consolidadas (MXN)", "Ventas_MXN")
 
     st.markdown('<div class="section-title">Comparativo Proyectos vs Tienda</div>', unsafe_allow_html=True)
     comp = pd.DataFrame([
@@ -1712,11 +1943,15 @@ elif view_selected == "Consolidado":
 
     c1,c2 = st.columns(2)
     with c1:
-        fig = px.bar(comp, x="Unidad", y=["Ventas", "Utilidad bruta", "Utilidad neta"], barmode="group", title="Ventas, utilidad bruta y utilidad neta")
-        st.plotly_chart(fig, use_container_width=True)
+        fig = px.bar(comp, x="Unidad", y=["Ventas", "Utilidad bruta", "Utilidad neta"], barmode="group", title="Ventas, utilidad bruta y utilidad neta", color_discrete_sequence=["#123E70", "#118C7E", "#64748B"])
+        fig.update_traces(hovertemplate="%{fullData.name}<br>$%{y:,.0f}<extra></extra>")
+        style_exec_chart(fig, height=390, money_axis=True, legend=True)
+        st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
     with c2:
-        fig = px.pie(comp, values="Ventas", names="Unidad", hole=.55, title="Participación en ventas")
-        st.plotly_chart(fig, use_container_width=True)
+        fig = px.pie(comp, values="Ventas", names="Unidad", hole=.62, title="Participación en ventas", color="Unidad", color_discrete_map={"Proyectos":"#123E70", "Tienda":"#118C7E"})
+        fig.update_traces(textposition="inside", textinfo="percent+label", hovertemplate="%{label}<br>$%{value:,.0f}<br>%{percent}<extra></extra>")
+        style_exec_chart(fig, height=390, money_axis=False, legend=False)
+        st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
     comp_show = comp.copy()
     comp_show["Unidad"] = comp_show["Unidad"].map({"Proyectos": "🔵 Proyectos", "Tienda": "🟢 Tienda"}).fillna(comp_show["Unidad"])
     premium_simple_table(
@@ -1740,8 +1975,11 @@ elif view_selected == "Proyectos":
     st.markdown('<div class="section-title">Unidad de negocio: Proyectos</div>', unsafe_allow_html=True)
     trend_note("Esta vista muestra ventas mensuales, conciliación y desempeño comercial del equipo. Orlando Martínez y Ana Margarita Sahagún suman en KPIs corporativos, pero no participan en el comparativo de ingenieros.")
 
-    monthly_chart(projects_base, "Ventas mensuales proyectos", "Ventas_MXN")
-    monthly_summary_table(projects_base, "Resumen mensual de ventas proyectos (MXN)", "Ventas_MXN")
+    selected_period = monthly_chart(projects_base, "Ventas mensuales proyectos", "Ventas_MXN", key="monthly_proyectos_v56")
+    if selected_period:
+        render_month_drilldown(projects_base, selected_period[0] or selected_year, selected_period[1], "Proyectos")
+    if display_mode == "Análisis":
+        monthly_summary_table(projects_base, "Resumen mensual de ventas proyectos (MXN)", "Ventas_MXN")
 
     st.markdown('<div class="section-title">Desempeño Comercial del Equipo</div>', unsafe_allow_html=True)
     performance_year = projects_year[~projects_year["Promotor"].fillna("").str.upper().isin(EXCLUDE_FROM_ENGINEER_ANALYSIS)].copy()
@@ -1774,16 +2012,23 @@ elif view_selected == "Proyectos":
             fig = px.bar(
                 prom.sort_values("Ventas_MXN"), x="Ventas_MXN", y="Promotor", orientation="h",
                 title="Ranking promotores por ventas",
-                hover_data=["Utilidad_Bruta_MXN","Margen_Bruto_Pct","Clientes","Cumplimiento_YTD_Pct"]
+                hover_data=["Utilidad_Bruta_MXN","Margen_Bruto_Pct","Clientes","Cumplimiento_YTD_Pct"],
+                color_discrete_sequence=["#123E70"]
             )
-            st.plotly_chart(fig, use_container_width=True)
+            fig.update_traces(hovertemplate="%{y}<br>Ventas $%{x:,.0f}<extra></extra>")
+            style_exec_chart(fig, height=430, money_axis=False, legend=False)
+            fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
         with c_rank2:
             fig = px.scatter(
                 prom, x="Ventas_MXN", y="Margen_Bruto_Pct", size="Utilidad_Bruta_MXN", color="Promotor",
                 title="Ventas vs margen bruto por promotor",
                 hover_data=["Clientes","Cumplimiento_YTD_Pct"]
             )
-            st.plotly_chart(fig, use_container_width=True)
+            style_exec_chart(fig, height=430, money_axis=False, legend=True)
+            fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+            fig.update_yaxes(ticksuffix="%")
+            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
 
         st.markdown('<div class="section-title">Ranking Comercial INTEREY</div>', unsafe_allow_html=True)
         st.caption("Lectura ejecutiva por ingeniero: ventas acumuladas, utilidad bruta, margen y avance contra meta.")
@@ -1803,7 +2048,8 @@ elif view_selected == "Proyectos":
                 zmin=0,
                 zmax=max(float(prom_month["Cumplimiento_Pct"].max()) if not prom_month.empty else 100, 100)
             )
-            st.plotly_chart(fig_heat, use_container_width=True)
+            fig_heat.update_layout(height=410, margin=dict(l=20,r=20,t=35,b=35), paper_bgcolor="rgba(0,0,0,0)")
+            st.plotly_chart(fig_heat, use_container_width=True, config=PLOT_CONFIG)
 
         st.markdown('<div class="section-title">Detalle ejecutivo por ingeniero / promotor</div>', unsafe_allow_html=True)
         focus = st.selectbox("Selecciona ingeniero / promotor", sorted(performance_year["Promotor"].dropna().unique().tolist()), key="promotor_detalle_v40")
@@ -1830,11 +2076,14 @@ elif view_selected == "Proyectos":
             fig_focus = px.line(detail, x="Mes_Num", y="Ventas_MXN", markers=True, title=f"Ventas mensuales · {focus}")
             fig_focus.update_layout(xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER))
             fig_focus.add_hline(y=project_monthly_target, line_dash="dash", line_color="#475569")
-            st.plotly_chart(fig_focus, use_container_width=True)
+            style_exec_chart(fig_focus, height=410, money_axis=True, legend=False)
+            st.plotly_chart(fig_focus, use_container_width=True, config=PLOT_CONFIG)
         with cdet_g2:
             fig_focus2 = px.bar(detail, x="Mes", y="Cumplimiento_Pct", title=f"Cumplimiento mensual · {focus}")
             fig_focus2.add_hline(y=100, line_dash="dash", line_color="#475569")
-            st.plotly_chart(fig_focus2, use_container_width=True)
+            style_exec_chart(fig_focus2, height=410, money_axis=False, legend=False)
+            fig_focus2.update_yaxes(ticksuffix="%")
+            st.plotly_chart(fig_focus2, use_container_width=True, config=PLOT_CONFIG)
         show_detail = detail[["Mes","Ventas_MXN","Utilidad_Bruta_MXN","Meta_Mensual","Diferencia_Meta_MXN","Cumplimiento_Pct","Estado"]].copy()
         premium_simple_table(
             show_detail,
@@ -1861,15 +2110,21 @@ else:  # Tienda
     st.markdown('<div class="section-title">Unidad de negocio: Tienda</div>', unsafe_allow_html=True)
     trend_note("Esta vista muestra ventas mensuales, conciliación y clientes principales. Tienda usa Total como venta y excluye registros cancelados.")
 
-    monthly_chart(store_base, "Ventas mensuales tienda", "Ventas_MXN")
-    monthly_summary_table(store_base, "Resumen mensual de ventas tienda (MXN)", "Ventas_MXN")
+    selected_period = monthly_chart(store_base, "Ventas mensuales tienda", "Ventas_MXN", key="monthly_tienda_v56")
+    if selected_period:
+        render_month_drilldown(store_base, selected_period[0] or selected_year, selected_period[1], "Tienda")
+    if display_mode == "Análisis":
+        monthly_summary_table(store_base, "Resumen mensual de ventas tienda (MXN)", "Ventas_MXN")
 
     st.markdown('<div class="section-title">Clientes tienda</div>', unsafe_allow_html=True)
     if not store_year.empty:
         cli = store_year.groupby("Cliente", as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
         cli["Margen_Bruto_Pct"] = cli["Utilidad_Bruta_MXN"] / cli["Ventas_MXN"].replace(0,pd.NA) * 100
-        fig = px.bar(cli.sort_values("Ventas_MXN", ascending=False).head(10).sort_values("Ventas_MXN"), x="Ventas_MXN", y="Cliente", orientation="h", title="Top 10 clientes tienda")
-        st.plotly_chart(fig, use_container_width=True)
+        fig = px.bar(cli.sort_values("Ventas_MXN", ascending=False).head(10).sort_values("Ventas_MXN"), x="Ventas_MXN", y="Cliente", orientation="h", title="Top 10 clientes tienda", color_discrete_sequence=["#123E70"])
+        fig.update_traces(hovertemplate="%{y}<br>$%{x:,.0f}<extra></extra>")
+        style_exec_chart(fig, height=430, money_axis=False, legend=False)
+        fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+        st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
         cli_show = cli.sort_values("Ventas_MXN", ascending=False).head(25).copy()
         premium_simple_table(
             cli_show,
@@ -1917,4 +2172,4 @@ with st.expander("ℹ️ Información metodológica"):
     - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
     """)
 
-st.caption("Versión v55 · Lectura de gastos validada · Periodo automático · Backlog Ejecutivo · Radar INTEREY 3.0.")
+st.caption("Versión v56 NEXT LEVEL · Gráficas ejecutivas interactivas · Drill-down por clic · Modo Dirección/Análisis · Gastos validados · Backlog Ejecutivo.")
