@@ -1140,16 +1140,29 @@ def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True):
         except Exception:
             trace_year = None
         if trace_year == selected_ref:
-            trace.update(line=dict(width=4), marker=dict(size=9), opacity=1)
+            trace.update(
+                line=dict(width=4),
+                marker=dict(size=13, line=dict(width=2, color="#FFFFFF")),
+                opacity=1,
+                selected=dict(marker=dict(opacity=1, size=15)),
+                unselected=dict(marker=dict(opacity=.55)),
+            )
         else:
-            trace.update(line=dict(width=2), marker=dict(size=6), opacity=.48)
+            trace.update(
+                line=dict(width=2),
+                marker=dict(size=8),
+                opacity=.48,
+                selected=dict(marker=dict(opacity=1, size=12)),
+                unselected=dict(marker=dict(opacity=.30)),
+            )
         trace.hovertemplate = "<b>%{fullData.name}</b><br>%{x}<br>$%{y:,.0f}<extra></extra>"
 
-    fig.update_layout(hovermode="x unified")
+    fig.update_layout(hovermode="x unified", clickmode="event+select")
     fig.update_xaxes(tickmode="array", tickvals=list(range(1,13)), ticktext=MONTH_ORDER)
     style_exec_chart(fig, height=410, money_axis=True, legend=True)
 
     if interactive and key:
+        st.caption("👆 Haz clic directamente sobre un punto de la gráfica para abrir el detalle del mes.")
         try:
             event = st.plotly_chart(
                 fig,
@@ -2172,4 +2185,4 @@ with st.expander("ℹ️ Información metodológica"):
     - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
     """)
 
-st.caption("Versión v56 NEXT LEVEL · Gráficas ejecutivas interactivas · Drill-down por clic · Modo Dirección/Análisis · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v57 NEXT LEVEL · Gráficas ejecutivas interactivas · Drill-down por clic · Modo Dirección/Análisis · Gastos validados · Backlog Ejecutivo.")
