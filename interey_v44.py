@@ -62,6 +62,8 @@ st.markdown("""
 .kpi-card.gray {background: linear-gradient(135deg, #334155 0%, #64748B 100%);}
 .kpi-card.red {background: linear-gradient(135deg, #991B1B 0%, var(--interey-red) 100%);}
 .kpi-card.yellow {background: linear-gradient(135deg, #92400E 0%, var(--interey-yellow) 100%);}
+.kpi-card.orange {background: linear-gradient(135deg, #C2410C 0%, #EA580C 100%);}
+.kpi-card.orange {background: linear-gradient(135deg, #9A3412 0%, #EA580C 100%);}
 .kpi-label {font-size: .82rem; opacity: .94; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700;}
 .kpi-value {font-size: 1.62rem; font-weight: 900; margin-top: .10rem; line-height: 1.12; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing:-.02em;}
 .kpi-sub {font-size: .72rem; opacity: .88; margin-top: .10rem; line-height: 1.22; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
@@ -234,6 +236,14 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 .premium-table tr.highlight-row td{background:#EEF6FF; font-weight:850;}
 .premium-table tr.risk-row td{background:#FFF7F7;}
 .premium-table tr.warn-row td{background:#FFFBEB;}
+.premium-table tr.attention-row td{background:#FFF7ED;}
+.premium-table tr.critical-row td{background:#FEF2F2; font-weight:800;}
+.backlog-alert{background:linear-gradient(135deg,#7F1D1D 0%,#DC2626 100%);color:#FFFFFF;border-radius:18px;padding:16px 18px;margin:12px 0 16px 0;box-shadow:0 10px 24px rgba(185,28,28,.18);border:1px solid rgba(255,255,255,.18);}
+.backlog-alert-title{font-size:.80rem;text-transform:uppercase;letter-spacing:.08em;font-weight:900;opacity:.82;}
+.backlog-alert-value{font-size:1.28rem;font-weight:950;margin-top:5px;line-height:1.18;}
+.backlog-alert-sub{font-size:.82rem;opacity:.88;margin-top:5px;}
+.premium-table tr.attention-row td{background:#FFF7ED;}
+.premium-table tr.critical-row td{background:#FEE2E2; font-weight:850;}
 .engineer-table td:nth-child(1), .engineer-table th:nth-child(1){text-align:left;}
 .engineer-table td:nth-child(7), .engineer-table th:nth-child(7), .engineer-table td:nth-child(8), .engineer-table th:nth-child(8){text-align:left;}
 .premium-table td.total-col{font-weight:900; color:var(--interey-blue-2); background:#EEF3F8;}
@@ -252,7 +262,6 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 MONTHS_ES = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
 MONTH_ORDER = [MONTHS_ES[i] for i in range(1,13)]
 MONTHS_FULL_TO_NUM = {"ENERO":1,"FEBRERO":2,"MARZO":3,"ABRIL":4,"MAYO":5,"JUNIO":6,"JULIO":7,"AGOSTO":8,"SEPTIEMBRE":9,"SETIEMBRE":9,"OCTUBRE":10,"NOVIEMBRE":11,"DICIEMBRE":12}
-CUTOFF_DATE = pd.Timestamp("2026-05-31")
 START_DATE = pd.Timestamp("2024-01-01")
 VALID_YEARS = [2024, 2025, 2026]
 PROJECT_TARGETS = {2024: 500000, 2025: 700000, 2026: 750000}
@@ -262,7 +271,8 @@ EXCLUDE_FROM_ENGINEER_ANALYSIS = {"ORLANDO MARTINEZ", "ANA MARGARITA SAHAGUN"}
 
 DEFAULT_PROJECT_FILES = ["Proyectos 2024-2026.csv", "Reporte 2024-2026.csv", "Reporte 2024-2026.csv"]
 DEFAULT_STORE_FILES = ["Tienda 2024-2026.csv", "reporte 2024-2026.csv"]
-DEFAULT_EXPENSE_FILES = ["VENTAS INTEREY PROYECTOS Y TIENDA 2026.xlsx", "Gastos INTEREY 2026.xlsx", "Gastos 2026.xlsx"]
+DEFAULT_EXPENSE_FILES = ["GASTOS OPERATIVOS 2026.xlsx", "GASTOS OPERATIVOS 2026(8).xlsx", "VENTAS INTEREY PROYECTOS Y TIENDA 2026.xlsx", "Gastos INTEREY 2026.xlsx", "Gastos 2026.xlsx"]
+DEFAULT_BACKLOG_FILES = ["Proyectos en ejecucion.csv", "Proyectos%20en%20ejecucion.csv", "Proyectos en ejecución.csv"]
 
 
 def fmt_money(x):
@@ -332,7 +342,6 @@ def find_default_file(names):
     return None
 
 
-@st.cache_data
 def load_projects(uploaded_file):
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
@@ -355,8 +364,8 @@ def load_projects(uploaded_file):
     df["Fecha"] = parse_date_project(df["Fecha"])
     df = add_time_cols(df)
 
-    # Regla de corte: solo 2024 en adelante y hasta 31/mayo/2026
-    df = df[(df["Fecha"] >= START_DATE) & (df["Fecha"] <= CUTOFF_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
+    # Corte automático: conserva toda la información disponible desde 2024.
+    df = df[(df["Fecha"] >= START_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
 
     # Nota: Ana Margarita Sahagun y Orlando Martinez SÍ se incluyen en KPIs corporativos.
     # Solo se excluyen en los comparativos de desempeño por ingeniero/promotor.
@@ -379,7 +388,86 @@ def load_projects(uploaded_file):
     return df
 
 
-@st.cache_data
+def load_backlog(uploaded_file):
+    """Carga el snapshot vigente de proyectos con OC pendientes de facturar.
+
+    Este archivo sustituye al anterior en cada corte mensual; no se acumula.
+    """
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+        except Exception as exc:
+            st.warning(f"No fue posible leer el archivo de ingresos comprometidos: {exc}")
+            return pd.DataFrame()
+    else:
+        p = find_default_file(DEFAULT_BACKLOG_FILES)
+        if p is None:
+            return pd.DataFrame()
+        try:
+            df = pd.read_csv(p)
+        except Exception as exc:
+            st.warning(f"No fue posible leer el archivo base de ingresos comprometidos: {exc}")
+            return pd.DataFrame()
+
+    if df.empty:
+        return pd.DataFrame()
+
+    df.columns = [str(c).strip() for c in df.columns]
+    required = ["Fecha", "Cliente", "Cotizado cliente"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        st.warning("El archivo de ingresos comprometidos no contiene: " + ", ".join(missing))
+        return pd.DataFrame()
+
+    for col in ["Promotor", "Cliente", "Descripcion", "Moneda", "Status"]:
+        if col in df.columns:
+            df[col] = df[col].fillna("").astype(str).str.strip()
+
+    raw = df["Fecha"].astype(str).str.strip()
+    dt = pd.to_datetime(raw, format="%d/%m/%y", errors="coerce")
+    missing_dt = dt.isna()
+    if missing_dt.any():
+        dt.loc[missing_dt] = pd.to_datetime(raw.loc[missing_dt], format="%d/%m/%Y", errors="coerce")
+    missing_dt = dt.isna()
+    if missing_dt.any():
+        dt.loc[missing_dt] = pd.to_datetime(raw.loc[missing_dt], dayfirst=True, errors="coerce")
+    df["Fecha_OC"] = dt
+    df = df[df["Fecha_OC"].notna()].copy()
+
+    for col in ["TC", "Cotizado cliente"]:
+        if col in df.columns:
+            df[col] = df[col].apply(parse_money)
+
+    df["Moneda"] = df.get("Moneda", "MXN")
+    df["Moneda"] = df["Moneda"].fillna("MXN").astype(str).str.upper()
+    df["TC"] = pd.to_numeric(df.get("TC", 1.0), errors="coerce").fillna(1.0)
+    df["Tipo_Cambio_Aplicado"] = df.apply(lambda r: r["TC"] if r["Moneda"] == "USD" else 1.0, axis=1)
+    df["Importe_Pendiente_MXN"] = pd.to_numeric(df["Cotizado cliente"], errors="coerce").fillna(0) * df["Tipo_Cambio_Aplicado"]
+
+    today = pd.Timestamp.today().normalize()
+    df["Dias_Abiertos"] = (today - df["Fecha_OC"].dt.normalize()).dt.days.clip(lower=0)
+    df["Periodo_OC"] = df["Fecha_OC"].dt.to_period("M").astype(str)
+    df["Mes_OC"] = df["Fecha_OC"].dt.month.map(MONTHS_ES)
+    df["Proyecto"] = df.get("Descripcion", "Sin descripción")
+    df["Responsable"] = df.get("Promotor", "Sin responsable")
+
+    def age_bucket(days):
+        if days <= 30:
+            return "🟢 0–30 días"
+        if days <= 60:
+            return "🟡 31–60 días"
+        if days <= 90:
+            return "🟠 61–90 días"
+        return "🔴 Más de 90 días"
+
+    df["Antigüedad"] = df["Dias_Abiertos"].apply(age_bucket)
+    if "Id" in df.columns:
+        df = df.drop_duplicates(subset=["Id"], keep="last")
+    else:
+        df = df.drop_duplicates(keep="last")
+    return df.reset_index(drop=True)
+
+
 def load_store(uploaded_file):
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file)
@@ -401,7 +489,7 @@ def load_store(uploaded_file):
         return pd.DataFrame()
     df["Fecha"] = parse_date_store(df["Fecha"])
     df = add_time_cols(df)
-    df = df[(df["Fecha"] >= START_DATE) & (df["Fecha"] <= CUTOFF_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
+    df = df[(df["Fecha"] >= START_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
 
     # TIENDA: solo considerar ventas activas.
     # Regla de negocio: cualquier registro con Status/Estatus cancelado NO debe afectar ventas, utilidad, forecast ni consolidado.
@@ -417,62 +505,143 @@ def load_store(uploaded_file):
     return df
 
 
-@st.cache_data
 def load_expenses(expense_file):
     """
-    Lee gastos mensuales desde el Excel administrativo.
-    Espera una hoja tipo 'RESUMEN 2026' con columnas:
-    MES, GASTOS PROYECTOS y GASTOS TIENDA.
+    Lee GASTOS OPERATIVOS 2026.xlsx.
+
+    Reglas:
+    - Proyectos: hoja RESUMEN, fila "Total general".
+    - Tienda: hoja "GASTOS TIENDA 2026", fila comparativa 2026.
+    - Los meses aún no capturados se marcan como pendientes.
     """
-    if expense_file is not None:
-        xls = pd.ExcelFile(expense_file)
-    else:
-        p = find_default_file(DEFAULT_EXPENSE_FILES)
-        if p is None:
-            return pd.DataFrame(columns=["Año", "Mes_Num", "Mes", "Gasto_Proyectos", "Gasto_Tienda"])
-        xls = pd.ExcelFile(p)
+    empty_cols = ["Año", "Mes_Num", "Mes", "Gasto_Proyectos", "Gasto_Tienda",
+                  "Disponible_Proyectos", "Disponible_Tienda"]
 
-    sheet_name = next((s for s in xls.sheet_names if "RESUMEN" in str(s).upper()), xls.sheet_names[0])
-    raw = pd.read_excel(xls, sheet_name=sheet_name, header=None)
+    try:
+        if expense_file is not None:
+            xls = pd.ExcelFile(expense_file)
+        else:
+            p = find_default_file(DEFAULT_EXPENSE_FILES)
+            if p is None:
+                return pd.DataFrame(columns=empty_cols)
+            xls = pd.ExcelFile(p)
+    except Exception as exc:
+        st.warning(f"No fue posible abrir el archivo de gastos: {exc}")
+        return pd.DataFrame(columns=empty_cols)
 
-    header_idx = None
-    for i in range(len(raw)):
-        row_values = [str(v).strip().upper() for v in raw.iloc[i].tolist()]
-        if "MES" in row_values and any("GASTOS PROYECTOS" in v for v in row_values) and any("GASTOS TIENDA" in v for v in row_values):
-            header_idx = i
-            break
+    month_names = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO",
+                   "JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"]
 
-    if header_idx is None:
-        st.warning("No encontré las columnas 'GASTOS PROYECTOS' y 'GASTOS TIENDA' en el archivo de gastos.")
-        return pd.DataFrame(columns=["Año", "Mes_Num", "Mes", "Gasto_Proyectos", "Gasto_Tienda"])
+    project_by_month = {m: pd.NA for m in range(1, 13)}
+    project_available = {m: False for m in range(1, 13)}
 
-    headers = raw.iloc[header_idx].astype(str).str.strip().tolist()
-    data = raw.iloc[header_idx + 1:].copy()
-    data.columns = headers
+    resumen_sheet = next((s for s in xls.sheet_names if str(s).strip().upper() == "RESUMEN"), None)
+    if resumen_sheet is not None:
+        raw = pd.read_excel(xls, sheet_name=resumen_sheet, header=None)
+        header_idx = None
+        for i in range(len(raw)):
+            vals = [str(v).strip().upper() for v in raw.iloc[i].tolist()]
+            if "CONCEPTO" in vals and "ENERO" in vals and "JULIO" in vals:
+                header_idx = i
+                break
 
-    # quitar filas vacías o total
-    data = data[data["MES"].notna()].copy()
-    data["MES_NORM"] = data["MES"].astype(str).str.strip().str.upper()
-    data = data[data["MES_NORM"].isin(MONTHS_FULL_TO_NUM.keys())].copy()
+        if header_idx is not None:
+            headers = [str(v).strip().upper() for v in raw.iloc[header_idx].tolist()]
+            total_idx = None
+            for i in range(header_idx + 1, len(raw)):
+                if str(raw.iloc[i, 0]).strip().upper() == "TOTAL GENERAL":
+                    total_idx = i
+                    break
 
-    data["Mes_Num"] = data["MES_NORM"].map(MONTHS_FULL_TO_NUM)
-    data["Mes"] = data["Mes_Num"].map(MONTHS_ES)
-    data["Año"] = 2026
+            if total_idx is not None:
+                workbook_month_sheets = {
+                    MONTHS_FULL_TO_NUM[str(s).strip().upper()]
+                    for s in xls.sheet_names
+                    if str(s).strip().upper() in MONTHS_FULL_TO_NUM
+                }
+                for m, month_name in enumerate(month_names, start=1):
+                    if month_name in headers:
+                        col_idx = headers.index(month_name)
+                        val = parse_money(raw.iloc[total_idx, col_idx])
+                        if m in workbook_month_sheets and not pd.isna(val):
+                            project_by_month[m] = float(val)
+                            project_available[m] = True
+            else:
+                st.warning("No encontré la fila 'Total general' en la hoja RESUMEN.")
+        else:
+            st.warning("No pude identificar los encabezados mensuales de la hoja RESUMEN.")
 
-    data["Gasto_Proyectos"] = data.get("GASTOS PROYECTOS", 0).apply(parse_money).fillna(0).astype(float)
-    data["Gasto_Tienda"] = data.get("GASTOS TIENDA", 0).apply(parse_money).fillna(0).astype(float)
+    store_by_month = {m: pd.NA for m in range(1, 13)}
+    store_available = {m: False for m in range(1, 13)}
 
-    return data[["Año", "Mes_Num", "Mes", "Gasto_Proyectos", "Gasto_Tienda"]].copy()
+    store_sheet = next((s for s in xls.sheet_names if "GASTOS TIENDA" in str(s).upper()), None)
+    if store_sheet is not None:
+        raw_store = pd.read_excel(xls, sheet_name=store_sheet, header=None)
 
+        header_idx = None
+        year_row_idx = None
+        for i in range(len(raw_store)):
+            first = str(raw_store.iloc[i, 0]).strip().upper()
+            vals = [str(v).strip().upper() for v in raw_store.iloc[i].tolist()]
+            if first == "AÑO" and "ENERO" in vals and "JULIO" in vals:
+                header_idx = i
+                for j in range(i + 1, min(i + 6, len(raw_store))):
+                    try:
+                        yr = int(float(raw_store.iloc[j, 0]))
+                    except Exception:
+                        continue
+                    if yr == 2026:
+                        year_row_idx = j
+                        break
+                if year_row_idx is not None:
+                    break
+
+        if header_idx is not None and year_row_idx is not None:
+            headers = [str(v).strip().upper() for v in raw_store.iloc[header_idx].tolist()]
+            for m, month_name in enumerate(month_names, start=1):
+                if month_name in headers:
+                    col_idx = headers.index(month_name)
+                    raw_val = raw_store.iloc[year_row_idx, col_idx]
+                    val = parse_money(raw_val)
+                    if not pd.isna(raw_val) and not pd.isna(val):
+                        store_by_month[m] = float(val)
+                        store_available[m] = True
+        else:
+            st.warning("No pude identificar la fila 2026 en la hoja de gastos de Tienda.")
+
+    rows = []
+    for m in range(1, 13):
+        rows.append({
+            "Año": 2026,
+            "Mes_Num": m,
+            "Mes": MONTHS_ES[m],
+            "Gasto_Proyectos": project_by_month[m],
+            "Gasto_Tienda": store_by_month[m],
+            "Disponible_Proyectos": project_available[m],
+            "Disponible_Tienda": store_available[m],
+        })
+    return pd.DataFrame(rows)
 
 def expenses_dict(expenses_df, year, months, unidad):
     col = "Gasto_Proyectos" if unidad == "Proyectos" else "Gasto_Tienda"
     if expenses_df.empty or col not in expenses_df.columns:
         return {m: 0.0 for m in months}
     temp = expenses_df[(expenses_df["Año"] == year) & (expenses_df["Mes_Num"].isin(months))].copy()
-    by_month = temp.groupby("Mes_Num")[col].sum().to_dict()
-    return {m: float(by_month.get(m, 0.0)) for m in months}
+    temp[col] = pd.to_numeric(temp[col], errors="coerce")
+    by_month = temp.groupby("Mes_Num")[col].sum(min_count=1).to_dict()
+    return {m: float(by_month[m]) if m in by_month and pd.notna(by_month[m]) else 0.0 for m in months}
 
+
+def expense_missing_months(expenses_df, year, months, unidad):
+    flag_col = "Disponible_Proyectos" if unidad == "Proyectos" else "Disponible_Tienda"
+    if expenses_df.empty or flag_col not in expenses_df.columns:
+        return list(months)
+    temp = expenses_df[expenses_df["Año"] == year].set_index("Mes_Num")
+    missing = []
+    for m in months:
+        if m not in temp.index or not bool(temp.loc[m, flag_col]):
+            missing.append(m)
+    return missing
 
 def closed_months_for_year(df, year):
     months = sorted(df.loc[df["Año"] == year, "Mes_Num"].dropna().astype(int).unique().tolist())
@@ -483,11 +652,37 @@ def closed_months_for_year(df, year):
     return months
 
 
-def ytd_months_for_selected_year(selected_year):
-    if selected_year == 2026:
-        return [1,2,3,4,5]
-    return list(range(1,13))
+def ytd_months_for_selected_year(selected_year, projects_df=None, store_df=None):
+    """Devuelve Enero..último mes con ventas del año seleccionado."""
+    months = set()
+    for df in [projects_df, store_df]:
+        if df is not None and not df.empty and "Año" in df.columns and "Mes_Num" in df.columns:
+            months.update(
+                df.loc[df["Año"] == selected_year, "Mes_Num"]
+                .dropna().astype(int).tolist()
+            )
+    if not months:
+        return list(range(1, 13))
+    return list(range(1, max(months) + 1))
 
+
+def latest_data_date(*dfs):
+    dates = []
+    for df in dfs:
+        if df is not None and not df.empty and "Fecha" in df.columns:
+            d = pd.to_datetime(df["Fecha"], errors="coerce").max()
+            if pd.notna(d):
+                dates.append(d)
+    return max(dates) if dates else None
+
+
+def fmt_date_es(dt):
+    if dt is None or pd.isna(dt):
+        return "Sin fecha"
+    full = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",
+            7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
+    dt = pd.Timestamp(dt)
+    return f"{dt.day:02d} {full[dt.month]} {dt.year}"
 
 def yoy(curr, prev):
     if prev in [0, None] or pd.isna(prev):
@@ -1037,44 +1232,241 @@ def render_dynamic_executive_view(view_name, fc, monthly_target_note=""):
     with d4: st.markdown(card("Utilidad bruta estimada", fmt_money(fc["forecast_utilidad_bruta"]), "Antes de gastos", "gray"), unsafe_allow_html=True)
     with d5: st.markdown(card("Utilidad estimada al cierre", fmt_money(fc["utilidad_neta_proy"]), f"Basado en tendencia · Margen: {fmt_pct(fc['margen_neto_proy'])}", net_proj_style), unsafe_allow_html=True)
 
+
+
+def render_backlog_view(backlog_df, annual_project_target):
+    st.markdown('<div class="section-title">📋 Backlog Ejecutivo</div>', unsafe_allow_html=True)
+    trend_note("Proyectos con orden de compra aprobada, actualmente en ejecución y pendientes de facturación. El archivo mensual sustituye por completo al snapshot anterior.")
+
+    if backlog_df is None or backlog_df.empty:
+        st.info("No hay información de backlog. Carga el CSV en la barra lateral o agrega el archivo base en GitHub.")
+        return
+
+    total = float(backlog_df["Importe_Pendiente_MXN"].sum())
+    abiertos = int(len(backlog_df))
+    promedio = float(backlog_df["Dias_Abiertos"].mean()) if abiertos else 0
+    oldest_idx = backlog_df["Dias_Abiertos"].idxmax()
+    oldest = backlog_df.loc[oldest_idx]
+    oldest_days = int(oldest["Dias_Abiertos"])
+    oldest_client = str(oldest.get("Cliente", "Sin cliente"))
+    oldest_amount = float(oldest.get("Importe_Pendiente_MXN", 0))
+
+    critical = backlog_df[backlog_df["Dias_Abiertos"] > 90].copy()
+    critical_count = int(len(critical))
+    critical_amount = float(critical["Importe_Pendiente_MXN"].sum()) if critical_count else 0
+    risk_pct = (critical_amount / total * 100) if total else 0
+    coverage_pct = (total / annual_project_target * 100) if annual_project_target else 0
+
+    client_summary = (
+        backlog_df.groupby("Cliente", as_index=False)
+        .agg(Importe=("Importe_Pendiente_MXN", "sum"), Proyectos=("Cliente", "size"))
+        .sort_values("Importe", ascending=False)
+    )
+    top_client = str(client_summary.iloc[0]["Cliente"]) if not client_summary.empty else "Sin cliente"
+    top_client_amount = float(client_summary.iloc[0]["Importe"]) if not client_summary.empty else 0
+    top_client_share = (top_client_amount / total * 100) if total else 0
+    healthy_count = int((backlog_df["Dias_Abiertos"] <= 30).sum())
+
+    radar_html = f"""
+    <div class="radar-card">
+        <div class="radar-head">
+            <div>
+                <div class="radar-title">📡 Radar del Backlog</div>
+                <div class="radar-subtitle">Lectura ejecutiva del ingreso pendiente, antigüedad, concentración y exposición financiera.</div>
+            </div>
+            <div class="radar-badge">{('🔴' if risk_pct >= 35 else '🟡' if risk_pct >= 20 else '🟢')} Riesgo financiero: {risk_pct:,.1f}%</div>
+        </div>
+        <div class="radar2-grid">
+            <div class="radar2-main">
+                <div class="radar2-main-label">Lectura principal</div>
+                <div class="radar2-main-value">El backlog equivale al {coverage_pct:,.1f}% de la meta anual de Proyectos.</div>
+                <div class="radar2-main-sub">Ingreso comprometido pendiente de facturar: <b>{fmt_money(total)}</b>.</div>
+            </div>
+            <div class="radar2-tile green">
+                <div class="radar2-label">🟢 Fortaleza</div>
+                <div class="radar2-value">{healthy_count:,} proyectos dentro de 30 días</div>
+                <div class="radar2-text">Representan la parte más sana y reciente del backlog.</div>
+            </div>
+            <div class="radar2-tile yellow">
+                <div class="radar2-label">🟡 Atención</div>
+                <div class="radar2-value">Antigüedad promedio: {promedio:,.0f} días</div>
+                <div class="radar2-text">Seguimiento recomendado para evitar que más proyectos migren a zona crítica.</div>
+            </div>
+            <div class="radar2-tile red">
+                <div class="radar2-label">🔴 Riesgo</div>
+                <div class="radar2-value">{critical_count:,} proyectos superan 90 días</div>
+                <div class="radar2-text">Exposición acumulada: {fmt_money(critical_amount)}.</div>
+            </div>
+            <div class="radar2-tile {'red' if top_client_share >= 35 else 'yellow' if top_client_share >= 20 else 'green'}">
+                <div class="radar2-label">🔵 Concentración</div>
+                <div class="radar2-value">{top_client} concentra {top_client_share:,.1f}%</div>
+                <div class="radar2-text">Importe pendiente del cliente: {fmt_money(top_client_amount)}.</div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(radar_html, unsafe_allow_html=True)
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(card("💰 Backlog total", fmt_money(total), "OC aprobadas pendientes de facturar"), unsafe_allow_html=True)
+    with c2:
+        st.markdown(card("📋 Proyectos abiertos", f"{abiertos:,}", "Actualmente en ejecución", "green"), unsafe_allow_html=True)
+    with c3:
+        avg_style = "red" if promedio > 90 else ("yellow" if promedio > 60 else "gray")
+        st.markdown(card("⏳ Antigüedad promedio", f"{promedio:,.0f} días", "Desde la recepción de la OC", avg_style), unsafe_allow_html=True)
+    with c4:
+        old_style = "red" if oldest_days > 90 else ("orange" if oldest_days > 60 else "yellow")
+        st.markdown(card("🔴 Proyecto más antiguo", f"{oldest_days:,} días", f"{oldest_client} · {fmt_money(oldest_amount)}", old_style), unsafe_allow_html=True)
+
+    if critical_count:
+        st.markdown(f"""
+        <div class="backlog-alert">
+            <div class="backlog-alert-title">🚨 Riesgo financiero detectado</div>
+            <div class="backlog-alert-value">{critical_count:,} proyectos superan los 90 días y concentran {fmt_money(critical_amount)}.</div>
+            <div class="backlog-alert-sub">Esto representa el <b>{risk_pct:,.1f}%</b> del backlog total pendiente de facturación.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.success("✅ Backlog sano: no existen proyectos con más de 90 días de antigüedad.")
+
+    order = ["🟢 0–30 días", "🟡 31–60 días", "🟠 61–90 días", "🔴 Más de 90 días"]
+    aging = backlog_df.groupby("Antigüedad", as_index=False).agg(
+        Proyectos=("Antigüedad", "size"),
+        Importe=("Importe_Pendiente_MXN", "sum")
+    )
+    aging["Antigüedad"] = pd.Categorical(aging["Antigüedad"], categories=order, ordered=True)
+    aging = aging.sort_values("Antigüedad")
+
+    a1, a2, a3, a4 = st.columns(4)
+    age_cards = [("🟢 0–30 días", "green"), ("🟡 31–60 días", "yellow"), ("🟠 61–90 días", "orange"), ("🔴 Más de 90 días", "red")]
+    for col, (bucket, style) in zip([a1, a2, a3, a4], age_cards):
+        row = aging[aging["Antigüedad"] == bucket]
+        count = int(row["Proyectos"].iloc[0]) if not row.empty else 0
+        amount = float(row["Importe"].iloc[0]) if not row.empty else 0
+        with col:
+            st.markdown(card(bucket, f"{count:,} proyectos", fmt_money(amount), style), unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Composición del backlog</div>', unsafe_allow_html=True)
+    g1, g2 = st.columns(2)
+    with g1:
+        fig_age = px.bar(aging, x="Antigüedad", y="Importe", text="Proyectos", title="Importe comprometido por antigüedad", category_orders={"Antigüedad": order})
+        fig_age.update_traces(texttemplate="%{text} proyectos", textposition="outside")
+        st.plotly_chart(fig_age, use_container_width=True)
+    with g2:
+        top_clients = client_summary.head(10).sort_values("Importe", ascending=True)
+        fig_clients = px.bar(
+            top_clients,
+            x="Importe",
+            y="Cliente",
+            orientation="h",
+            text="Proyectos",
+            title="Top 10 clientes por ingreso pendiente",
+            hover_data={"Importe": ":,.0f", "Proyectos": True},
+        )
+        fig_clients.update_traces(texttemplate="%{text} proyectos", textposition="outside")
+        st.plotly_chart(fig_clients, use_container_width=True)
+
+    table = backlog_df.copy().sort_values(["Dias_Abiertos", "Importe_Pendiente_MXN"], ascending=[False, False])
+    table["Fecha_OC_Texto"] = table["Fecha_OC"].dt.strftime("%d/%m/%Y")
+    premium_simple_table(
+        table,
+        "Detalle ejecutivo de proyectos con OC",
+        "Ordenado del proyecto más antiguo al más reciente. El importe se expresa en MXN y las operaciones en USD utilizan el TC del archivo.",
+        columns=[
+            ("Antigüedad", "Semáforo", "text"),
+            ("Cliente", "Cliente", "text"),
+            ("Proyecto", "Proyecto", "text"),
+            ("Responsable", "Responsable", "text"),
+            ("Fecha_OC_Texto", "Fecha OC", "text"),
+            ("Dias_Abiertos", "Días abiertos", "number"),
+            ("Importe_Pendiente_MXN", "Importe pendiente", "money"),
+        ],
+        row_class_fn=lambda row, idx: "critical-row" if float(row.get("Dias_Abiertos", 0)) > 90 else ("attention-row" if float(row.get("Dias_Abiertos", 0)) > 60 else ("warn-row" if float(row.get("Dias_Abiertos", 0)) > 30 else "highlight-row"))
+    )
+
 # ---------- SIDEBAR ----------
-st.sidebar.markdown("## Carga de archivos")
-proj_upload = st.sidebar.file_uploader("Reporte Proyectos", type=["csv"], key="proj_upload")
-store_upload = st.sidebar.file_uploader("Reporte Tienda", type=["csv"], key="store_upload")
-expense_upload = st.sidebar.file_uploader("Archivo de gastos", type=["xlsx"], key="expense_upload")
-st.sidebar.caption("Si no subes archivos, el dashboard intentará usar 'Proyectos 2024-2026.csv', 'Tienda 2024-2026.csv' y 'VENTAS INTEREY PROYECTOS Y TIENDA 2026.xlsx' desde la misma carpeta.")
+st.sidebar.markdown("## Fuente de información")
+manual_mode = st.sidebar.checkbox(
+    "🧪 Modo de pruebas / cargar archivos manualmente",
+    value=False,
+    help="Desactivado: usa automáticamente los archivos guardados en GitHub."
+)
+
+proj_upload = store_upload = expense_upload = backlog_upload = None
+if manual_mode:
+    st.sidebar.markdown("### Reemplazo temporal")
+    proj_upload = st.sidebar.file_uploader("Reporte Proyectos", type=["csv"], key="proj_upload")
+    store_upload = st.sidebar.file_uploader("Reporte Tienda", type=["csv"], key="store_upload")
+    expense_upload = st.sidebar.file_uploader("Archivo de gastos", type=["xlsx"], key="expense_upload")
+    backlog_upload = st.sidebar.file_uploader("Proyectos en ejecución (con OC)", type=["csv"], key="backlog_upload")
+else:
+    st.sidebar.success("🟢 Modo automático · archivos del repositorio GitHub")
 
 projects = load_projects(proj_upload)
 store = load_store(store_upload)
 expenses = load_expenses(expense_upload)
+backlog = load_backlog(backlog_upload)
 
 if projects.empty and store.empty:
-    st.error("No encontré datos. Sube los CSV de Proyectos y Tienda o colócalos en la misma carpeta del script.")
+    st.error("No encontré datos. Verifica los archivos maestros en la misma carpeta que interey_v44.py.")
     st.stop()
 
-years_available = sorted(set(projects.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist() + store.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist()))
+years_available = sorted(set(
+    projects.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist()
+    + store.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist()
+))
 years_available = [y for y in years_available if y in VALID_YEARS]
 selected_year = st.sidebar.selectbox("Año principal", years_available, index=len(years_available)-1)
 compare_years = st.sidebar.multiselect("Años a comparar", years_available, default=years_available)
-months_available = ytd_months_for_selected_year(selected_year)
-selected_months = st.sidebar.multiselect("Meses del año principal", list(range(1,13)), default=months_available)
+
+months_available = ytd_months_for_selected_year(selected_year, projects, store)
+period_advanced = st.sidebar.checkbox(
+    "🔎 Análisis avanzado de periodo",
+    value=False,
+    help="Actívalo solo si quieres analizar meses específicos."
+)
+if period_advanced:
+    selected_months = st.sidebar.multiselect(
+        "Meses del año principal",
+        list(range(1, 13)),
+        default=months_available,
+        format_func=lambda m: MONTHS_ES[m],
+        key=f"meses_avanzado_{selected_year}"
+    )
+    if not selected_months:
+        selected_months = months_available
+else:
+    selected_months = months_available
+    st.sidebar.caption("Periodo automático: " + " · ".join(MONTHS_ES[m] for m in selected_months))
 
 st.sidebar.markdown("## Metas")
 engineers = st.sidebar.number_input("Ingenieros proyectos considerados", min_value=1, value=ACTIVE_PROJECT_ENGINEERS_FOR_TARGET, step=1)
-project_monthly_target = st.sidebar.number_input(f"Meta mensual proyectos {selected_year}", min_value=0.0, value=float(PROJECT_TARGETS.get(selected_year, 0)), step=50000.0, format="%.0f")
-store_monthly_target = st.sidebar.number_input(f"Meta mensual tienda {selected_year}", min_value=0.0, value=float(STORE_TARGETS.get(selected_year, 0)), step=25000.0, format="%.0f")
+project_monthly_target = st.sidebar.number_input(
+    f"Meta mensual proyectos {selected_year}", min_value=0.0,
+    value=float(PROJECT_TARGETS.get(selected_year, 0)), step=50000.0, format="%.0f"
+)
+store_monthly_target = st.sidebar.number_input(
+    f"Meta mensual tienda {selected_year}", min_value=0.0,
+    value=float(STORE_TARGETS.get(selected_year, 0)), step=25000.0, format="%.0f"
+)
 
 months_ytd = selected_months
 project_expenses = expenses_dict(expenses, selected_year, months_ytd, "Proyectos")
 store_expenses = expenses_dict(expenses, selected_year, months_ytd, "Tienda")
+missing_proj_exp = expense_missing_months(expenses, selected_year, months_ytd, "Proyectos")
+missing_store_exp = expense_missing_months(expenses, selected_year, months_ytd, "Tienda")
 
 st.sidebar.markdown("## Gastos automáticos")
 if expenses.empty:
     st.sidebar.warning("No se cargó archivo de gastos. Los gastos se calcularán en $0.")
 else:
-    gastos_preview = expenses[(expenses["Año"] == selected_year) & (expenses["Mes_Num"].isin(months_ytd))].copy()
     st.sidebar.caption(f"Gasto proyectos YTD: {fmt_money(sum(project_expenses.values()))}")
     st.sidebar.caption(f"Gasto tienda YTD: {fmt_money(sum(store_expenses.values()))}")
+    if missing_proj_exp:
+        st.sidebar.warning("Proyectos pendiente: " + ", ".join(MONTHS_ES[m] for m in missing_proj_exp))
+    if missing_store_exp:
+        st.sidebar.warning("Tienda pendiente: " + ", ".join(MONTHS_ES[m] for m in missing_store_exp))
 
 # Filtros base comparativo
 projects_base = projects[projects["Año"].isin(compare_years)].copy()
@@ -1105,6 +1497,20 @@ consol_fc["gap"] = consol_fc["forecast_ventas"] - consol_fc["meta_anual"]
 consol_fc["meses_restantes"] = max(12 - len(months_ytd), 0)
 consol_fc["venta_req"] = (consol_fc["meta_anual"] - consol_fc["ventas_ytd"]) / consol_fc["meses_restantes"] if consol_fc["meses_restantes"] else 0
 
+if selected_year == 2026 and (missing_proj_exp or missing_store_exp):
+    pending_parts = []
+    if missing_proj_exp:
+        pending_parts.append("Proyectos: " + ", ".join(MONTHS_ES[m] for m in missing_proj_exp))
+    if missing_store_exp:
+        pending_parts.append("Tienda: " + ", ".join(MONTHS_ES[m] for m in missing_store_exp))
+    st.warning(
+        "⚠️ Ventas disponibles hasta "
+        + MONTHS_ES[max(selected_months)]
+        + ", pero faltan gastos administrativos para: "
+        + " | ".join(pending_parts)
+        + ". La utilidad neta debe considerarse provisional hasta actualizar esos gastos."
+    )
+
 # ---------- HEADER ----------
 months_label = ", ".join(MONTHS_ES[m] for m in selected_months)
 here = Path(__file__).resolve().parent
@@ -1130,14 +1536,21 @@ with hc2:
     st.markdown('<div class="hero-subtitle">Soluciones en Telecomunicaciones y Seguridad</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="hero-pill"><b>Año principal:</b> {selected_year} &nbsp;|&nbsp; <b>Meses analizados:</b> {months_label}</div>', unsafe_allow_html=True)
 with hc3:
-    st.markdown('<div class="hero-date"><b>Datos actualizados al</b><br><span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">31 Mayo 2026</span><br><span>Corte fijo: 01/ene/2024 al 31/may/2026</span></div>', unsafe_allow_html=True)
+    data_max_date = latest_data_date(projects_year, store_year)
+    data_max_label = fmt_date_es(data_max_date)
+    st.markdown(
+        f'<div class="hero-date"><b>Datos actualizados al</b><br>'
+        f'<span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">{data_max_label}</span><br>'
+        f'<span>Periodo automático según archivos de ventas</span></div>',
+        unsafe_allow_html=True
+    )
 st.markdown('</div>', unsafe_allow_html=True)
 radar_interey(consol_fc, proj_fc, store_fc)
 
 # ---------- VISTA EJECUTIVA DINÁMICA ----------
 view_selected = st.radio(
     "Selecciona vista",
-    ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda"],
+    ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda", "Ingresos Comprometidos"],
     horizontal=True,
     label_visibility="collapsed",
     key="vista_ejecutiva"
@@ -1149,7 +1562,7 @@ elif view_selected == "Consolidado":
     render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
 elif view_selected == "Proyectos":
     render_dynamic_executive_view("Proyectos", proj_fc, f"{engineers} ing. × {fmt_money(project_monthly_target)} × 12")
-else:
+elif view_selected == "Tienda":
     render_dynamic_executive_view("Tienda", store_fc, f"{fmt_money(store_monthly_target)} × 12")
 
 # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
@@ -1333,6 +1746,9 @@ elif view_selected == "Proyectos":
     else:
         st.info("No hay datos de ingenieros/promotores comparables para el filtro actual. Los KPIs corporativos de Proyectos sí pueden incluir Orlando Martínez y Ana Margarita Sahagún.")
 
+elif view_selected == "Ingresos Comprometidos":
+    render_backlog_view(backlog, project_monthly_target * 12 * engineers)
+
 else:  # Tienda
     st.markdown('<div class="section-title">Unidad de negocio: Tienda</div>', unsafe_allow_html=True)
     trend_note("Esta vista muestra ventas mensuales, conciliación y clientes principales. Tienda usa Total como venta y excluye registros cancelados.")
@@ -1363,25 +1779,34 @@ else:  # Tienda
         st.info("No hay datos de tienda para el filtro actual.")
 
 with st.expander("Auditoría avanzada de datos filtrados"):
-    st.caption("Se muestran datos ya filtrados por fecha: 01/ene/2024 al 31/may/2026.")
+    st.caption("Se muestran datos desde 01/ene/2024 hasta la fecha más reciente encontrada en los archivos cargados.")
     if view_selected == "Proyectos":
         cols = [c for c in ["Id","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Descripcion","Moneda","TC","Tipo_Cambio_Aplicado","Cotizado cliente","Ventas_MXN","Utilidad bruta","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in projects.columns]
         st.dataframe(projects[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
     elif view_selected == "Tienda":
         cols = [c for c in ["Fecha","Año","Mes_Num","Mes","Status","Status_Normalizado","Cliente","Pago","SubTotal","Ventas_MXN","Util $","Utilidad_Bruta_MXN","Margen_Bruto_Pct","Total"] if c in store.columns]
         st.dataframe(store[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
+    elif view_selected == "Ingresos Comprometidos":
+        if backlog.empty:
+            st.info("No hay datos de ingresos comprometidos para auditar.")
+        else:
+            cols = [c for c in ["Id","Fecha_OC","Dias_Abiertos","Antigüedad","Promotor","Cliente","Descripcion","Moneda","TC","Cotizado cliente","Importe_Pendiente_MXN","Status"] if c in backlog.columns]
+            st.dataframe(backlog[cols].sort_values("Dias_Abiertos", ascending=False), use_container_width=True, hide_index=True)
     else:
         cols = [c for c in ["Unidad","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Ventas_MXN","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in combined_year.columns]
         st.dataframe(combined_year[cols].sort_values(["Unidad","Fecha"], ascending=[True,False]), use_container_width=True, hide_index=True)
 
 with st.expander("ℹ️ Información metodológica"):
     st.markdown("""
-    - Corte fijo de información: **01/ene/2024 al 31/may/2026**.
+    - Corte automático: desde **01/ene/2024** hasta el último mes con ventas disponible en los archivos maestros.
     - Proyectos usa **Cotizado cliente** para ventas y **Utilidad bruta** para utilidad.
     - Las operaciones en USD de Proyectos se convierten con **TC real por operación**.
     - Tienda usa **Total** para ventas y **Util $** para utilidad.
     - Tienda excluye registros con estatus **Cancelado**.
-    - Los gastos se leen automáticamente desde el archivo administrativo, separados en **Proyectos** y **Tienda**.
+    - Gastos automáticos desde **GASTOS OPERATIVOS 2026.xlsx**: Proyectos = **RESUMEN / Total general**; Tienda = **GASTOS TIENDA 2026 / fila 2026**.
+    - Ingresos comprometidos usa el snapshot vigente de proyectos con **OC aprobada**, en ejecución y pendientes de facturar.
+    - La antigüedad se calcula desde la fecha de recepción de la OC hasta la fecha actual.
+    - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
     """)
 
-st.caption("Versión v44 · Radar INTEREY 3.0 · Resumen Ejecutivo Corporativo.")
+st.caption("Versión v54 · Periodo y gastos automáticos · Backlog Ejecutivo · Radar INTEREY 3.0.")
