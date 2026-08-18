@@ -1074,55 +1074,41 @@ def style_exec_chart(fig, height=390, money_axis=False, legend=True):
 PLOT_CONFIG = {"displayModeBar": False, "responsive": True}
 
 
-def _selected_vega_period(event, param_name="month_click"):
-    """Extrae (año, mes) desde una selección nativa Vega-Lite/Streamlit."""
+def _selected_plotly_point(event):
+    """Extrae (año, mes) desde el estado real de selección de Streamlit/Plotly."""
     if event is None:
         return None
 
     try:
+        # Streamlit 1.61 entrega PlotlyState, compatible con atributo y diccionario.
         selection = getattr(event, "selection", None)
         if selection is None and hasattr(event, "get"):
             selection = event.get("selection", {})
 
-        if selection is None:
+        points = getattr(selection, "points", None)
+        if points is None and hasattr(selection, "get"):
+            points = selection.get("points", [])
+
+        if not points:
             return None
 
-        if hasattr(selection, "get"):
-            picked = selection.get(param_name, {})
+        point = points[0]
+        if hasattr(point, "get"):
+            custom = point.get("customdata")
+            x = point.get("x")
+            curve_number = point.get("curve_number")
         else:
-            picked = getattr(selection, param_name, {})
+            custom = getattr(point, "customdata", None)
+            x = getattr(point, "x", None)
+            curve_number = getattr(point, "curve_number", None)
 
-        if not picked:
-            return None
+        # Nuestra gráfica lleva customdata=[Año, Mes_Num].
+        if custom is not None and len(custom) >= 2:
+            return int(custom[0]), int(custom[1])
 
-        # Forma habitual cuando la selección se define con fields=["Año","Mes_Num"]:
-        # {"Año": [2026], "Mes_Num": [8]}
-        if hasattr(picked, "get"):
-            years = picked.get("Año")
-            months = picked.get("Mes_Num")
-
-            if years is not None and months is not None:
-                if isinstance(years, (list, tuple)):
-                    year = years[0] if years else None
-                else:
-                    year = years
-
-                if isinstance(months, (list, tuple)):
-                    month = months[0] if months else None
-                else:
-                    month = months
-
-                if year is not None and month is not None:
-                    return int(year), int(month)
-
-        # Respaldo para una eventual lista de registros.
-        if isinstance(picked, (list, tuple)) and picked:
-            first = picked[0]
-            if hasattr(first, "get"):
-                year = first.get("Año")
-                month = first.get("Mes_Num")
-                if year is not None and month is not None:
-                    return int(year), int(month)
+        # Respaldo: el eje X siempre es Mes_Num.
+        if x is not None:
+            return None, int(round(float(x)))
 
     except Exception:
         return None
@@ -1132,12 +1118,11 @@ def _selected_vega_period(event, param_name="month_click"):
 
 def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True):
     """
-    Gráfica mensual ejecutiva con selección NATIVA de Streamlit/Vega-Lite.
+    Gráfica mensual ejecutiva estable + Explorador Mensual.
 
-    Motivo del cambio:
-    Plotly mostraba correctamente hover y estilo, pero en el navegador de producción
-    no estaba emitiendo el evento de selección (points=[]). Vega-Lite define el clic
-    como un parámetro de selección explícito, que Streamlit puede recibir directamente.
+    La visual permanece en Plotly porque es la versión que ya validamos visualmente.
+    La navegación del drill-down se hace con controles segmentados nativos de
+    Streamlit para que la interacción sea confiable en producción.
     """
     if df.empty:
         st.info("No hay datos para graficar.")
@@ -1148,218 +1133,133 @@ def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True):
         Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN", "sum")
     )
     monthly["Año"] = monthly["Año"].astype(int)
-    monthly["Año_Texto"] = monthly["Año"].astype(str)
     monthly["Mes_Num"] = monthly["Mes_Num"].astype(int)
-    monthly["Mes"] = monthly["Mes_Num"].map(MONTHS_ES)
+    monthly["Año_Texto"] = monthly["Año"].astype(str)
 
     years = sorted(monthly["Año"].dropna().astype(int).unique().tolist())
     selected_ref = globals().get("selected_year", max(years) if years else None)
 
-    # Paleta ejecutiva: año actual INTEREY; históricos atenuados.
-    muted = ["#94A3B8", "#C0CAD8", "#64748B", "#D2DAE5"]
-    color_domain = [str(y) for y in years]
-    color_range = []
+    color_map = {}
+    muted = ["#94A3B8", "#64748B", "#CBD5E1"]
     muted_i = 0
     for y in years:
         if y == selected_ref:
-            color_range.append("#123E70")
+            color_map[str(y)] = "#123E70"
         else:
-            color_range.append(muted[muted_i % len(muted)])
+            color_map[str(y)] = muted[muted_i % len(muted)]
             muted_i += 1
 
-    current_test = f"datum.Año == {int(selected_ref)}" if selected_ref is not None else "true"
-
-    spec = {
-        "height": 360,
-        "title": {
-            "text": title,
-            "anchor": "start",
-            "fontSize": 17,
-            "fontWeight": 700,
-            "color": "#0B1F4D",
-            "offset": 18
-        },
-        "params": [
-            {
-                "name": "month_click",
-                "select": {
-                    "type": "point",
-                    "fields": ["Año", "Mes_Num"],
-                    "on": "click",
-                    "clear": "dblclick"
-                }
-            }
-        ],
-        "layer": [
-            {
-                "mark": {
-                    "type": "line",
-                    "interpolate": "linear"
-                },
-                "encoding": {
-                    "x": {
-                        "field": "Mes",
-                        "type": "ordinal",
-                        "sort": MONTH_ORDER,
-                        "axis": {
-                            "title": None,
-                            "labelAngle": 0,
-                            "labelColor": "#64748B",
-                            "domainColor": "#DCE3EC",
-                            "tickSize": 0
-                        }
-                    },
-                    "y": {
-                        "field": ycol,
-                        "type": "quantitative",
-                        "axis": {
-                            "title": None,
-                            "format": "$,.0f",
-                            "labelColor": "#64748B",
-                            "gridColor": "#E9EEF5",
-                            "domain": False,
-                            "tickColor": "#E9EEF5"
-                        }
-                    },
-                    "color": {
-                        "field": "Año_Texto",
-                        "type": "nominal",
-                        "scale": {
-                            "domain": color_domain,
-                            "range": color_range
-                        },
-                        "legend": {
-                            "title": None,
-                            "orient": "top",
-                            "direction": "horizontal",
-                            "labelColor": "#475569"
-                        }
-                    },
-                    "strokeWidth": {
-                        "condition": {
-                            "test": current_test,
-                            "value": 4
-                        },
-                        "value": 2
-                    },
-                    "opacity": {
-                        "condition": {
-                            "test": current_test,
-                            "value": 1
-                        },
-                        "value": 0.48
-                    },
-                    "order": {
-                        "field": "Mes_Num",
-                        "type": "quantitative"
-                    }
-                }
-            },
-            {
-                "mark": {
-                    "type": "point",
-                    "filled": True
-                },
-                "encoding": {
-                    "x": {
-                        "field": "Mes",
-                        "type": "ordinal",
-                        "sort": MONTH_ORDER,
-                        "axis": {"title": None}
-                    },
-                    "y": {
-                        "field": ycol,
-                        "type": "quantitative",
-                        "axis": {"title": None}
-                    },
-                    "color": {
-                        "field": "Año_Texto",
-                        "type": "nominal",
-                        "scale": {
-                            "domain": color_domain,
-                            "range": color_range
-                        },
-                        "legend": None
-                    },
-                    "size": {
-                        "condition": [
-                            {"param": "month_click", "value": 300},
-                            {"test": current_test, "value": 175}
-                        ],
-                        "value": 90
-                    },
-                    "opacity": {
-                        "condition": [
-                            {"param": "month_click", "value": 1},
-                            {"test": current_test, "value": 1}
-                        ],
-                        "value": 0.60
-                    },
-                    "stroke": {
-                        "condition": {
-                            "param": "month_click",
-                            "value": "#D52B24"
-                        },
-                        "value": "#FFFFFF"
-                    },
-                    "strokeWidth": {
-                        "condition": {
-                            "param": "month_click",
-                            "value": 4
-                        },
-                        "value": 2
-                    },
-                    "tooltip": [
-                        {"field": "Año", "type": "quantitative", "title": "Año", "format": "d"},
-                        {"field": "Mes", "type": "nominal", "title": "Mes"},
-                        {"field": ycol, "type": "quantitative", "title": "Ventas", "format": "$,.0f"}
-                    ]
-                }
-            }
-        ],
-        "config": {
-            "view": {"stroke": None},
-            "axis": {
-                "labelFont": "Arial",
-                "titleFont": "Arial"
-            },
-            "legend": {
-                "labelFont": "Arial",
-                "titleFont": "Arial"
-            }
-        }
-    }
-
-    if not interactive or not key:
-        st.vega_lite_chart(monthly, spec=spec, width="stretch")
-        return None
-
-    st.caption("👆 CLICK-TO-EXPLORE · Haz clic sobre cualquier círculo para abrir el detalle de ese mes.")
-
-    event = st.vega_lite_chart(
+    fig = px.line(
         monthly,
-        spec=spec,
-        width="stretch",
-        key=key,
-        on_select="rerun",
-        selection_mode="month_click",
+        x="Mes_Num",
+        y=ycol,
+        color="Año_Texto",
+        markers=True,
+        title=title,
+        color_discrete_map=color_map,
+        labels={ycol: "Importe", "Año_Texto": "Año"},
+        render_mode="svg",
     )
 
-    selected = _selected_vega_period(event, "month_click")
+    for trace in fig.data:
+        try:
+            trace_year = int(trace.name)
+        except Exception:
+            trace_year = None
 
-    # Persistimos el último clic válido para que el panel permanezca abierto.
-    memory_key = f"{key}__last_selected"
-    if selected is not None:
-        st.session_state[memory_key] = selected
+        if trace_year == selected_ref:
+            trace.update(
+                line=dict(width=4),
+                marker=dict(size=10, line=dict(width=1.5, color="#FFFFFF")),
+                opacity=1,
+            )
+        else:
+            trace.update(
+                line=dict(width=2),
+                marker=dict(size=7),
+                opacity=.46,
+            )
 
-    selected = st.session_state.get(memory_key, selected)
-
-    if selected:
-        st.success(
-            f"✅ CLICK-TO-EXPLORE · {MONTHS_ES.get(int(selected[1]), selected[1])} {int(selected[0])}"
+        trace.hovertemplate = (
+            "<b>%{fullData.name}</b><br>"
+            "Mes: %{x}<br>"
+            "$%{y:,.0f}"
+            "<extra></extra>"
         )
 
-    return selected
+    # Hover consolidado por mes: mantiene la lectura comparativa que ya gustó.
+    fig.update_layout(hovermode="x unified")
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=list(range(1, 13)),
+        ticktext=MONTH_ORDER
+    )
+    style_exec_chart(fig, height=410, money_axis=True, legend=True)
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        config=PLOT_CONFIG,
+        key=f"{key}_chart" if key else None,
+    )
+
+    if not interactive or not key:
+        return None
+
+    # ---------- EXPLORADOR MENSUAL ----------
+    st.markdown(
+        '<div style="font-size:.82rem;font-weight:850;color:#0B1F4D;'
+        'margin-top:-4px;margin-bottom:4px;">🔎 Explorador mensual</div>',
+        unsafe_allow_html=True
+    )
+    st.caption("Selecciona año y mes para abrir el detalle ejecutivo sin salir de la gráfica.")
+
+    default_year = selected_ref if selected_ref in years else (max(years) if years else None)
+
+    if len(years) > 1:
+        explore_year = st.segmented_control(
+            "Año a explorar",
+            options=years,
+            default=default_year,
+            selection_mode="single",
+            required=True,
+            key=f"{key}_explore_year",
+            label_visibility="collapsed",
+            width="content",
+        )
+    else:
+        explore_year = years[0] if years else default_year
+
+    available_months = sorted(
+        monthly.loc[monthly["Año"] == int(explore_year), "Mes_Num"]
+        .dropna()
+        .astype(int)
+        .unique()
+        .tolist()
+    )
+
+    if not available_months:
+        return None
+
+    # El último mes con información queda preseleccionado.
+    default_month = max(available_months)
+
+    explore_month = st.segmented_control(
+        "Mes a explorar",
+        options=available_months,
+        default=default_month,
+        selection_mode="single",
+        required=True,
+        format_func=lambda m: MONTHS_ES.get(int(m), str(m)),
+        key=f"{key}_explore_month_{int(explore_year)}",
+        label_visibility="collapsed",
+        width="stretch",
+    )
+
+    if explore_month is None:
+        return None
+
+    return int(explore_year), int(explore_month)
 
 
 def render_month_drilldown(df, year, month, label="Detalle mensual"):
@@ -1390,9 +1290,9 @@ def render_month_drilldown(df, year, month, label="Detalle mensual"):
         <div class="drill-head">
             <div>
                 <div class="drill-title">🔎 {label} · {month_label} {int(year)}</div>
-                <div class="drill-sub">Seleccionaste este punto en la gráfica. El panel se actualiza automáticamente.</div>
+                <div class="drill-sub">Periodo seleccionado en el Explorador Mensual. El panel se actualiza automáticamente.</div>
             </div>
-            <div class="drill-badge">CLICK-TO-EXPLORE</div>
+            <div class="drill-badge">EXPLORADOR MENSUAL</div>
         </div>
         <div class="drill-grid">
             <div class="drill-tile"><div class="drill-label">Ventas</div><div class="drill-value">{fmt_money(ventas)}</div><div class="drill-note">Ingreso del mes</div></div>
@@ -2366,4 +2266,4 @@ with st.expander("ℹ️ Información metodológica"):
     - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
     """)
 
-st.caption("Versión v59 NEXT LEVEL · Gráficas ejecutivas interactivas · Drill-down por clic · Modo Dirección/Análisis · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v60 NEXT LEVEL · Gráficas ejecutivas interactivas · Drill-down por clic · Modo Dirección/Análisis · Gastos validados · Backlog Ejecutivo.")
