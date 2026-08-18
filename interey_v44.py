@@ -335,10 +335,30 @@ def add_time_cols(df):
 
 def find_default_file(names):
     here = Path(__file__).resolve().parent
+
+    # 1) Primero busca coincidencia exacta.
     for name in names:
         p = here / name
         if p.exists():
             return p
+
+    # 2) Respaldo tolerante: permite variantes del nombre generadas al descargar/copiar archivos.
+    patterns = []
+    for name in names:
+        stem = Path(name).stem
+        suffix = Path(name).suffix
+        if stem:
+            patterns.append(f"{stem}*{suffix}")
+
+    # Caso especial del archivo administrativo mensual de gastos.
+    if any("GASTOS OPERATIVOS 2026" in str(n).upper() for n in names):
+        patterns.insert(0, "GASTOS OPERATIVOS 2026*.xlsx")
+
+    for pattern in patterns:
+        matches = sorted(here.glob(pattern))
+        if matches:
+            return matches[0]
+
     return None
 
 
@@ -507,15 +527,21 @@ def load_store(uploaded_file):
 
 def load_expenses(expense_file):
     """
-    Lee GASTOS OPERATIVOS 2026.xlsx.
+    Lee automáticamente GASTOS OPERATIVOS 2026.xlsx.
 
-    Reglas:
+    Fuente oficial:
     - Proyectos: hoja RESUMEN, fila "Total general".
-    - Tienda: hoja "GASTOS TIENDA 2026", fila comparativa 2026.
-    - Los meses aún no capturados se marcan como pendientes.
+    - Tienda: hoja "GASTOS TIENDA 2026", bloque 2026,
+      fila "GASTOS Total general".
+
+    Los meses todavía no capturados permanecen como pendientes (NA),
+    para no tratarlos como gasto $0.
     """
-    empty_cols = ["Año", "Mes_Num", "Mes", "Gasto_Proyectos", "Gasto_Tienda",
-                  "Disponible_Proyectos", "Disponible_Tienda"]
+    empty_cols = [
+        "Año", "Mes_Num", "Mes",
+        "Gasto_Proyectos", "Gasto_Tienda",
+        "Disponible_Proyectos", "Disponible_Tienda"
+    ]
 
     try:
         if expense_file is not None:
@@ -523,91 +549,156 @@ def load_expenses(expense_file):
         else:
             p = find_default_file(DEFAULT_EXPENSE_FILES)
             if p is None:
+                st.warning(
+                    "No encontré el archivo de gastos en GitHub/carpeta del dashboard. "
+                    "Verifica que exista 'GASTOS OPERATIVOS 2026.xlsx'."
+                )
                 return pd.DataFrame(columns=empty_cols)
             xls = pd.ExcelFile(p)
     except Exception as exc:
         st.warning(f"No fue posible abrir el archivo de gastos: {exc}")
         return pd.DataFrame(columns=empty_cols)
 
-    month_names = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO",
-                   "JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"]
+    month_names = [
+        "ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO",
+        "JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"
+    ]
 
+    # ---------- PROYECTOS ----------
     project_by_month = {m: pd.NA for m in range(1, 13)}
     project_available = {m: False for m in range(1, 13)}
 
-    resumen_sheet = next((s for s in xls.sheet_names if str(s).strip().upper() == "RESUMEN"), None)
-    if resumen_sheet is not None:
+    resumen_sheet = next(
+        (s for s in xls.sheet_names if str(s).strip().upper() == "RESUMEN"),
+        None
+    )
+
+    if resumen_sheet is None:
+        st.warning("No encontré la hoja 'RESUMEN' en el archivo de gastos.")
+    else:
         raw = pd.read_excel(xls, sheet_name=resumen_sheet, header=None)
-        header_idx = None
-        for i in range(len(raw)):
-            vals = [str(v).strip().upper() for v in raw.iloc[i].tolist()]
-            if "CONCEPTO" in vals and "ENERO" in vals and "JULIO" in vals:
-                header_idx = i
-                break
 
+        header_idx = next(
+            (
+                i for i in range(len(raw))
+                if str(raw.iloc[i, 0]).strip().upper() == "CONCEPTO"
+                and "ENERO" in [str(v).strip().upper() for v in raw.iloc[i].tolist()]
+            ),
+            None
+        )
+
+        total_idx = None
         if header_idx is not None:
-            headers = [str(v).strip().upper() for v in raw.iloc[header_idx].tolist()]
-            total_idx = None
-            for i in range(header_idx + 1, len(raw)):
-                if str(raw.iloc[i, 0]).strip().upper() == "TOTAL GENERAL":
-                    total_idx = i
-                    break
+            total_idx = next(
+                (
+                    i for i in range(header_idx + 1, len(raw))
+                    if str(raw.iloc[i, 0]).strip().upper() == "TOTAL GENERAL"
+                ),
+                None
+            )
 
-            if total_idx is not None:
-                workbook_month_sheets = {
-                    MONTHS_FULL_TO_NUM[str(s).strip().upper()]
-                    for s in xls.sheet_names
-                    if str(s).strip().upper() in MONTHS_FULL_TO_NUM
-                }
-                for m, month_name in enumerate(month_names, start=1):
-                    if month_name in headers:
-                        col_idx = headers.index(month_name)
-                        val = parse_money(raw.iloc[total_idx, col_idx])
-                        if m in workbook_month_sheets and not pd.isna(val):
-                            project_by_month[m] = float(val)
-                            project_available[m] = True
-            else:
-                st.warning("No encontré la fila 'Total general' en la hoja RESUMEN.")
+        if header_idx is None or total_idx is None:
+            st.warning("No pude identificar 'CONCEPTO' / 'Total general' en la hoja RESUMEN.")
         else:
-            st.warning("No pude identificar los encabezados mensuales de la hoja RESUMEN.")
+            headers = [str(v).strip().upper() for v in raw.iloc[header_idx].tolist()]
 
+            # Para Proyectos, las hojas mensuales existentes indican qué meses ya están capturados/cerrados.
+            available_month_sheets = {
+                str(s).strip().upper()
+                for s in xls.sheet_names
+                if str(s).strip().upper() in month_names
+            }
+
+            for m, month_name in enumerate(month_names, start=1):
+                if month_name not in headers:
+                    continue
+                col_idx = headers.index(month_name)
+                val = parse_money(raw.iloc[total_idx, col_idx])
+
+                if month_name in available_month_sheets and not pd.isna(val):
+                    project_by_month[m] = float(val)
+                    project_available[m] = True
+
+    # ---------- TIENDA ----------
     store_by_month = {m: pd.NA for m in range(1, 13)}
     store_available = {m: False for m in range(1, 13)}
 
-    store_sheet = next((s for s in xls.sheet_names if "GASTOS TIENDA" in str(s).upper()), None)
-    if store_sheet is not None:
+    store_sheet = next(
+        (s for s in xls.sheet_names if str(s).strip().upper() == "GASTOS TIENDA 2026"),
+        None
+    )
+    if store_sheet is None:
+        store_sheet = next(
+            (s for s in xls.sheet_names if "GASTOS TIENDA" in str(s).upper()),
+            None
+        )
+
+    if store_sheet is None:
+        st.warning("No encontré la hoja 'GASTOS TIENDA 2026'.")
+    else:
         raw_store = pd.read_excel(xls, sheet_name=store_sheet, header=None)
 
-        header_idx = None
-        year_row_idx = None
-        for i in range(len(raw_store)):
-            first = str(raw_store.iloc[i, 0]).strip().upper()
-            vals = [str(v).strip().upper() for v in raw_store.iloc[i].tolist()]
-            if first == "AÑO" and "ENERO" in vals and "JULIO" in vals:
-                header_idx = i
-                for j in range(i + 1, min(i + 6, len(raw_store))):
-                    try:
-                        yr = int(float(raw_store.iloc[j, 0]))
-                    except Exception:
-                        continue
-                    if yr == 2026:
-                        year_row_idx = j
-                        break
-                if year_row_idx is not None:
-                    break
+        # Localiza primero el bloque 2026 para no leer por accidente el bloque 2025.
+        block_start = next(
+            (
+                i for i in range(len(raw_store))
+                if "GASTOS INTEREY STORE" in str(raw_store.iloc[i, 0]).strip().upper()
+                and "2026" in str(raw_store.iloc[i, 0]).strip().upper()
+            ),
+            None
+        )
 
-        if header_idx is not None and year_row_idx is not None:
-            headers = [str(v).strip().upper() for v in raw_store.iloc[header_idx].tolist()]
-            for m, month_name in enumerate(month_names, start=1):
-                if month_name in headers:
-                    col_idx = headers.index(month_name)
-                    raw_val = raw_store.iloc[year_row_idx, col_idx]
-                    val = parse_money(raw_val)
-                    if not pd.isna(raw_val) and not pd.isna(val):
-                        store_by_month[m] = float(val)
-                        store_available[m] = True
+        header_idx = None
+        total_idx = None
+
+        if block_start is not None:
+            header_idx = next(
+                (
+                    i for i in range(block_start + 1, len(raw_store))
+                    if str(raw_store.iloc[i, 0]).strip().upper() == "CONCEPTO"
+                ),
+                None
+            )
+
+        if header_idx is not None:
+            total_idx = next(
+                (
+                    i for i in range(header_idx + 1, len(raw_store))
+                    if str(raw_store.iloc[i, 0]).strip().upper() == "GASTOS TOTAL GENERAL"
+                ),
+                None
+            )
+
+        if header_idx is None or total_idx is None:
+            st.warning(
+                "No pude identificar el bloque 2026 / 'GASTOS Total general' "
+                "en la hoja GASTOS TIENDA 2026."
+            )
         else:
-            st.warning("No pude identificar la fila 2026 en la hoja de gastos de Tienda.")
+            headers = [str(v).strip().upper() for v in raw_store.iloc[header_idx].tolist()]
+            detail = raw_store.iloc[header_idx + 1:total_idx].copy()
+
+            # Detecta el último mes realmente capturado en el bloque 2026.
+            last_available_month = 0
+            for m, month_name in enumerate(month_names, start=1):
+                if month_name not in headers:
+                    continue
+                col_idx = headers.index(month_name)
+                month_detail = detail.iloc[:, col_idx]
+
+                # Si hay al menos una partida informada en ese mes, el mes está disponible.
+                if month_detail.notna().any():
+                    last_available_month = m
+
+            for m, month_name in enumerate(month_names, start=1):
+                if month_name not in headers or m > last_available_month:
+                    continue
+
+                col_idx = headers.index(month_name)
+                val = parse_money(raw_store.iloc[total_idx, col_idx])
+                if not pd.isna(val):
+                    store_by_month[m] = float(val)
+                    store_available[m] = True
 
     rows = []
     for m in range(1, 13):
@@ -620,7 +711,24 @@ def load_expenses(expense_file):
             "Disponible_Proyectos": project_available[m],
             "Disponible_Tienda": store_available[m],
         })
-    return pd.DataFrame(rows)
+
+    result = pd.DataFrame(rows)
+
+    # Validación administrativa visible: estos valores deben conciliar con el Excel.
+    p_total = pd.to_numeric(
+        result.loc[result["Disponible_Proyectos"], "Gasto_Proyectos"],
+        errors="coerce"
+    ).sum()
+    t_total = pd.to_numeric(
+        result.loc[result["Disponible_Tienda"], "Gasto_Tienda"],
+        errors="coerce"
+    ).sum()
+
+    st.sidebar.caption(f"Excel gastos Proyectos reconocido: {fmt_money(p_total)}")
+    st.sidebar.caption(f"Excel gastos Tienda reconocido: {fmt_money(t_total)}")
+
+    return result
+
 
 def expenses_dict(expenses_df, year, months, unidad):
     col = "Gasto_Proyectos" if unidad == "Proyectos" else "Gasto_Tienda"
@@ -1809,4 +1917,4 @@ with st.expander("ℹ️ Información metodológica"):
     - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
     """)
 
-st.caption("Versión v54 · Periodo y gastos automáticos · Backlog Ejecutivo · Radar INTEREY 3.0.")
+st.caption("Versión v55 · Lectura de gastos validada · Periodo automático · Backlog Ejecutivo · Radar INTEREY 3.0.")
