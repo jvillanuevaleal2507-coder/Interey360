@@ -1,1 +1,2755 @@
 
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from pathlib import Path
+
+st.set_page_config(page_title="INTEREY | Dashboard Corporativo", layout="wide")
+
+# ---------- ESTILO ----------
+st.markdown("""
+<style>
+:root{
+    --interey-blue:#123E70;
+    --interey-blue-2:#0B1F4D;
+    --interey-red:#D52B24;
+    --interey-graphite:#344648;
+    --interey-bg:#F5F7FB;
+    --interey-card:#FFFFFF;
+    --interey-green:#118C7E;
+    --interey-yellow:#D97706;
+    --interey-gray:#64748B;
+}
+.stApp {background: linear-gradient(180deg, #F7F9FC 0%, #FFFFFF 42%);}
+.block-container {padding-top: 1.0rem; padding-bottom: 2rem; max-width: 1520px;}
+[data-testid="stSidebar"] {background: #EEF3F8;}
+
+/* Header INTEREY */
+.hero-wrap{
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 6px 0 14px 0;
+    box-shadow: none;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+.hero-title{font-size:2.25rem; font-weight:900; color:var(--interey-blue-2); letter-spacing:-.045em; line-height:1.02;}
+.hero-kicker{font-size:.82rem; font-weight:800; color:var(--interey-red); letter-spacing:.13em; text-transform:uppercase; margin-bottom:4px;}
+.hero-subtitle{font-size:1.04rem; color:var(--interey-graphite); margin-top:4px;}
+.hero-pill{background:#FFFFFF; border:1px solid rgba(18,62,112,.16); border-radius:999px; padding:8px 12px; color:#334155; font-size:.82rem; display:inline-block; margin-top:8px;}
+.hero-date{text-align:right; color:#475569; font-size:.83rem; padding-top:6px;}
+.logo-box-premium img{max-height:74px; object-fit:contain;}
+
+/* Cards */
+.kpi-card {
+    background: linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%);
+    color: white;
+    border-radius: 18px;
+    padding: 16px 18px;
+    box-shadow: 0 8px 22px rgba(11,31,77,.14);
+    height: 136px;
+    min-height: 136px;
+    max-height: 136px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    box-sizing: border-box;
+    border: 1px solid rgba(255,255,255,.18);
+}
+.kpi-card.green {background: linear-gradient(135deg, #0F766E 0%, var(--interey-green) 100%);}
+.kpi-card.gray {background: linear-gradient(135deg, #334155 0%, #64748B 100%);}
+.kpi-card.red {background: linear-gradient(135deg, #991B1B 0%, var(--interey-red) 100%);}
+.kpi-card.yellow {background: linear-gradient(135deg, #92400E 0%, var(--interey-yellow) 100%);}
+.kpi-card.orange {background: linear-gradient(135deg, #C2410C 0%, #EA580C 100%);}
+.kpi-card.orange {background: linear-gradient(135deg, #9A3412 0%, #EA580C 100%);}
+.kpi-label {font-size: .82rem; opacity: .94; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight:700;}
+.kpi-value {font-size: 1.62rem; font-weight: 900; margin-top: .10rem; line-height: 1.12; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing:-.02em;}
+.kpi-sub {font-size: .72rem; opacity: .88; margin-top: .10rem; line-height: 1.22; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;}
+.kpi-spacer{height:14px;}
+
+.section-title {font-size: 1.18rem; font-weight: 850; color: var(--interey-blue-2); margin-top: 1.0rem; margin-bottom: .62rem; letter-spacing:-.01em;}
+.small-note {font-size: .82rem; color: #6B7280;}
+.exec-band {background: #FFFFFF; border: 1px solid rgba(18,62,112,.12); border-radius: 16px; padding: 10px 14px; margin-bottom: .9rem; box-shadow:0 4px 12px rgba(15,23,42,.04);}
+.trend-note {font-size: .82rem; color: #475569; margin-top: .55rem; background: #F8FAFC; border-left: 4px solid var(--interey-blue); padding: 9px 11px; border-radius: 10px;}
+
+/* Radar INTEREY 2.0 */
+.radar-card{
+    background:linear-gradient(135deg,#071A33 0%, #123E70 55%, #1D5C92 100%);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:24px;
+    padding:20px 22px;
+    margin:12px 0 18px 0;
+    box-shadow:0 16px 36px rgba(11,31,77,.18);
+    color:#FFFFFF;
+    overflow:hidden;
+    position:relative;
+}
+.radar-card:before{content:""; position:absolute; right:-70px; top:-90px; width:260px; height:260px; border-radius:50%; background:rgba(255,255,255,.08);}
+.radar-card:after{content:""; position:absolute; right:34px; bottom:-78px; width:180px; height:180px; border-radius:50%; background:rgba(213,43,36,.13);}
+.radar-head{display:flex; justify-content:space-between; gap:18px; align-items:flex-start; position:relative; z-index:2; margin-bottom:15px;}
+.radar-title{font-size:1.32rem; font-weight:950; letter-spacing:-.02em; margin-bottom:3px; color:#FFFFFF;}
+.radar-subtitle{font-size:.86rem; color:rgba(255,255,255,.78); line-height:1.32;}
+.radar-badge{background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.24); border-radius:999px; padding:8px 12px; font-size:.78rem; font-weight:850; color:#FFFFFF; white-space:nowrap;}
+.radar2-grid{display:grid; grid-template-columns:1.25fr repeat(3, minmax(0, .9fr)); gap:12px; position:relative; z-index:2;}
+.radar2-main{background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.22); border-radius:18px; padding:15px 16px; min-height:142px;}
+.radar2-main-label{font-size:.76rem; font-weight:850; text-transform:uppercase; letter-spacing:.08em; color:rgba(255,255,255,.72);}
+.radar2-main-value{font-size:1.45rem; line-height:1.12; font-weight:950; margin-top:7px; color:#FFFFFF; letter-spacing:-.025em;}
+.radar2-main-sub{font-size:.83rem; line-height:1.33; color:rgba(255,255,255,.78); margin-top:9px;}
+.radar2-tile{background:#FFFFFF; color:#0F172A; border-radius:18px; padding:14px 14px; box-shadow:0 10px 24px rgba(15,23,42,.13); min-height:142px; border-top:5px solid var(--interey-blue);}
+.radar2-tile.green{border-top-color:var(--interey-green);}
+.radar2-tile.red{border-top-color:var(--interey-red);}
+.radar2-tile.yellow{border-top-color:var(--interey-yellow);}
+.radar2-label{font-size:.74rem; font-weight:900; color:#64748B; text-transform:uppercase; letter-spacing:.06em;}
+.radar2-value{font-size:1.22rem; font-weight:950; color:#0B1F4D; margin-top:6px; line-height:1.12;}
+.radar2-text{font-size:.81rem; color:#475569; line-height:1.30; margin-top:8px;}
+.radar2-list{margin:8px 0 0 0; padding-left:0; list-style:none;}
+.radar2-list li{font-size:.80rem; color:#334155; line-height:1.32; margin:5px 0;}
+.radar2-list li:before{content:"•"; color:var(--interey-blue); font-weight:950; margin-right:7px;}
+.radar2-tile.green .radar2-list li:before{color:var(--interey-green);}
+.radar2-tile.red .radar2-list li:before{color:var(--interey-red);}
+.radar2-tile.yellow .radar2-list li:before{color:var(--interey-yellow);}
+@media (max-width: 1200px){.radar2-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width: 760px){.radar-head{display:block;} .radar-badge{display:inline-block;margin-top:10px;} .radar2-grid{grid-template-columns:1fr;}}
+
+/* Radar INTEREY 4.0 · Executive Command Bar */
+.radar-exec{
+    background:#FFFFFF;
+    border:1px solid #DDE5EE;
+    border-radius:20px;
+    overflow:hidden;
+    margin:12px 0 18px 0;
+    box-shadow:0 10px 28px rgba(15,23,42,.07);
+}
+.radar-exec-top{
+    background:linear-gradient(135deg,#0B1F4D 0%,#123E70 72%,#1C568D 100%);
+    color:#FFFFFF;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+}
+.radar-exec-brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.radar-exec-icon{
+    width:32px;
+    height:32px;
+    border-radius:10px;
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.18);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1rem;
+}
+.radar-exec-title{
+    font-size:1.08rem;
+    font-weight:950;
+    letter-spacing:-.02em;
+    color:#FFFFFF;
+}
+.radar-exec-kicker{
+    font-size:.68rem;
+    font-weight:800;
+    letter-spacing:.10em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,.68);
+    margin-top:1px;
+}
+.radar-exec-status{
+    border-radius:999px;
+    padding:7px 11px;
+    font-size:.73rem;
+    font-weight:900;
+    letter-spacing:.02em;
+    white-space:nowrap;
+    border:1px solid rgba(255,255,255,.24);
+    background:rgba(255,255,255,.10);
+    color:#FFFFFF;
+}
+.radar-exec-summary{
+    padding:15px 18px 13px 18px;
+    border-bottom:1px solid #E7EDF4;
+    background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%);
+}
+.radar-exec-summary-label{
+    font-size:.68rem;
+    color:#64748B;
+    text-transform:uppercase;
+    font-weight:900;
+    letter-spacing:.10em;
+    margin-bottom:5px;
+}
+.radar-exec-summary-title{
+    color:#0B1F4D;
+    font-size:1.23rem;
+    line-height:1.20;
+    font-weight:950;
+    letter-spacing:-.025em;
+}
+.radar-exec-summary-sub{
+    color:#64748B;
+    font-size:.79rem;
+    line-height:1.35;
+    margin-top:5px;
+}
+.radar-exec-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    background:#FFFFFF;
+}
+.radar-exec-metric{
+    min-height:108px;
+    padding:14px 17px 13px 17px;
+    border-right:1px solid #E7EDF4;
+    position:relative;
+}
+.radar-exec-metric:last-child{border-right:none;}
+.radar-exec-metric:before{
+    content:"";
+    position:absolute;
+    top:0;
+    left:17px;
+    right:17px;
+    height:3px;
+    border-radius:0 0 4px 4px;
+    background:#123E70;
+}
+.radar-exec-metric.good:before{background:#118C7E;}
+.radar-exec-metric.warn:before{background:#D97706;}
+.radar-exec-metric.bad:before{background:#D52B24;}
+.radar-exec-metric.neutral:before{background:#64748B;}
+.radar-exec-label{
+    color:#64748B;
+    font-size:.69rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.075em;
+    margin-top:3px;
+}
+.radar-exec-value{
+    color:#0B1F4D;
+    font-size:1.45rem;
+    font-weight:950;
+    letter-spacing:-.035em;
+    line-height:1.08;
+    margin-top:8px;
+}
+.radar-exec-meta{
+    color:#64748B;
+    font-size:.74rem;
+    line-height:1.28;
+    margin-top:6px;
+}
+.radar-exec-signal{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+}
+.radar-exec-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    display:inline-block;
+    background:#64748B;
+}
+.radar-exec-dot.good{background:#118C7E;}
+.radar-exec-dot.warn{background:#D97706;}
+.radar-exec-dot.bad{background:#D52B24;}
+.radar-exec-action{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    padding:12px 18px;
+    background:#F6F9FC;
+    border-top:1px solid #E7EDF4;
+}
+.radar-exec-action-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+}
+.radar-exec-action-icon{
+    width:30px;
+    height:30px;
+    border-radius:9px;
+    background:#E8F0FA;
+    color:#123E70;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:.92rem;
+    flex:0 0 auto;
+}
+.radar-exec-action-label{
+    color:#64748B;
+    font-size:.66rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.09em;
+}
+.radar-exec-action-text{
+    color:#1E293B;
+    font-size:.79rem;
+    font-weight:750;
+    margin-top:2px;
+}
+.radar-exec-action-value{
+    color:#0B1F4D;
+    font-size:1.28rem;
+    font-weight:950;
+    letter-spacing:-.03em;
+    white-space:nowrap;
+}
+@media (max-width:1000px){
+    .radar-exec-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .radar-exec-metric:nth-child(2){border-right:none;}
+    .radar-exec-metric:nth-child(-n+2){border-bottom:1px solid #E7EDF4;}
+}
+@media (max-width:640px){
+    .radar-exec-top{display:block;}
+    .radar-exec-status{display:inline-block;margin-top:10px;}
+    .radar-exec-grid{grid-template-columns:1fr;}
+    .radar-exec-metric{border-right:none;border-bottom:1px solid #E7EDF4;}
+    .radar-exec-metric:last-child{border-bottom:none;}
+    .radar-exec-action{align-items:flex-start;flex-direction:column;}
+    .radar-exec-action-value{padding-left:40px;}
+}
+
+/* KPI Cards 2.0 · Executive refinement */
+.kpi-card{
+    --kpi-accent:#123E70;
+    background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%) !important;
+    color:#0B1F4D !important;
+    border:1px solid #DDE5EE !important;
+    border-top:4px solid var(--kpi-accent) !important;
+    border-radius:16px !important;
+    padding:14px 16px 13px 16px !important;
+    box-shadow:0 7px 20px rgba(15,23,42,.07) !important;
+    height:124px !important;
+    min-height:124px !important;
+    max-height:124px !important;
+    position:relative;
+    transition:box-shadow .16s ease,border-color .16s ease;
+}
+.kpi-card:hover{
+    box-shadow:0 10px 24px rgba(15,23,42,.10) !important;
+    border-color:#CBD6E3 !important;
+}
+.kpi-card.green{--kpi-accent:#118C7E;}
+.kpi-card.gray{--kpi-accent:#64748B;}
+.kpi-card.red{--kpi-accent:#D52B24;}
+.kpi-card.yellow{--kpi-accent:#D97706;}
+.kpi-card.orange{--kpi-accent:#EA580C;}
+
+.kpi-card .kpi-label{
+    color:#5F6F82 !important;
+    opacity:1 !important;
+    font-size:.72rem !important;
+    font-weight:900 !important;
+    letter-spacing:.015em;
+    line-height:1.18 !important;
+}
+.kpi-card .kpi-value{
+    color:#0B1F4D !important;
+    font-size:1.48rem !important;
+    font-weight:950 !important;
+    line-height:1.08 !important;
+    letter-spacing:-.035em !important;
+    margin-top:.14rem !important;
+}
+.kpi-card .kpi-sub{
+    color:#718096 !important;
+    opacity:1 !important;
+    font-size:.70rem !important;
+    line-height:1.25 !important;
+    margin-top:.16rem !important;
+}
+.kpi-card.red .kpi-value{color:#B42318 !important;}
+.kpi-card.green .kpi-value{color:#0F766E !important;}
+.kpi-card.yellow .kpi-value{color:#B45309 !important;}
+.kpi-card.orange .kpi-value{color:#C2410C !important;}
+
+.kpi-card:after{
+    content:"";
+    position:absolute;
+    right:14px;
+    top:14px;
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    background:var(--kpi-accent);
+    box-shadow:0 0 0 4px rgba(148,163,184,.10);
+}
+.kpi-spacer{height:12px;}
+
+@media (max-width:900px){
+    .kpi-card{
+        height:120px !important;
+        min-height:120px !important;
+        max-height:120px !important;
+    }
+}
+
+
+
+/* Executive summary V43 */
+.exec-summary-wrap{
+    background: linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
+    border:1px solid rgba(18,62,112,.14);
+    border-radius:22px;
+    padding:18px 20px;
+    margin:14px 0 18px 0;
+    box-shadow:0 12px 30px rgba(15,23,42,.07);
+}
+.exec-summary-title{font-size:1.22rem;font-weight:950;color:var(--interey-blue-2);letter-spacing:-.02em;margin-bottom:4px;}
+.exec-summary-sub{font-size:.85rem;color:#64748B;margin-bottom:14px;}
+.exec-progress-card{
+    background:linear-gradient(135deg,var(--interey-blue-2) 0%,var(--interey-blue) 100%);
+    border-radius:20px;
+    padding:18px 20px;
+    color:#FFFFFF;
+    box-shadow:0 10px 26px rgba(11,31,77,.16);
+    overflow:hidden;
+    position:relative;
+}
+.exec-progress-card:after{content:"";position:absolute;right:-40px;top:-60px;width:170px;height:170px;background:rgba(255,255,255,.08);border-radius:50%;}
+.exec-progress-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-end;position:relative;z-index:2;}
+.exec-progress-label{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;font-weight:900;color:rgba(255,255,255,.75);}
+.exec-progress-value{font-size:2.35rem;font-weight:950;letter-spacing:-.05em;line-height:1;}
+.exec-progress-status{font-size:.88rem;font-weight:850;color:rgba(255,255,255,.88);text-align:right;}
+.exec-progress-track{height:16px;background:rgba(255,255,255,.18);border-radius:999px;margin-top:16px;overflow:hidden;position:relative;z-index:2;}
+.exec-progress-fill{height:16px;border-radius:999px;background:linear-gradient(90deg,#FFFFFF 0%,#DCEBFF 100%);}
+.exec-progress-foot{font-size:.80rem;color:rgba(255,255,255,.78);margin-top:10px;position:relative;z-index:2;}
+.exec-insights-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px;}
+.exec-insight{background:#FFFFFF;border:1px solid #E2E8F0;border-radius:18px;padding:14px 14px;min-height:112px;box-shadow:0 8px 22px rgba(15,23,42,.05);border-left:5px solid var(--interey-blue);}
+.exec-insight.green{border-left-color:var(--interey-green);} .exec-insight.red{border-left-color:var(--interey-red);} .exec-insight.yellow{border-left-color:var(--interey-yellow);} .exec-insight.gray{border-left-color:var(--interey-gray);}
+.exec-insight-label{font-size:.74rem;text-transform:uppercase;letter-spacing:.06em;color:#64748B;font-weight:900;}
+.exec-insight-value{font-size:1.05rem;line-height:1.20;font-weight:950;color:#0B1F4D;margin-top:7px;}
+.exec-insight-text{font-size:.80rem;line-height:1.30;color:#475569;margin-top:7px;}
+@media (max-width:1200px){.exec-insights-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:760px){.exec-insights-grid{grid-template-columns:1fr;}}
+
+
+/* Executive view selector */
+.view-selector-card{
+    background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFC 100%);
+    border:1px solid rgba(18,62,112,.14);
+    border-radius:18px;
+    padding:14px 18px 10px 18px;
+    margin:12px 0 16px 0;
+    box-shadow:0 8px 22px rgba(15,23,42,.05);
+}
+.view-selector-title{font-size:1.05rem;font-weight:900;color:var(--interey-blue-2);margin-bottom:2px;}
+.view-selector-sub{font-size:.80rem;color:#64748B;margin-bottom:8px;}
+div[role="radiogroup"] label{
+    background:#FFFFFF;
+    border:1px solid #D8E2EC;
+    border-radius:999px;
+    padding:8px 13px;
+    margin-right:8px;
+    box-shadow:0 3px 10px rgba(15,23,42,.04);
+}
+div[role="radiogroup"] label:hover{border-color:var(--interey-blue); transform: translateY(-1px); transition:.15s ease;}
+div[role="radiogroup"] label:has(input:checked){
+    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%);
+    color:#FFFFFF !important;
+    border-color:var(--interey-blue-2);
+    box-shadow:0 8px 18px rgba(18,62,112,.20);
+}
+div[role="radiogroup"] label:has(input:checked) p{color:#FFFFFF !important; font-weight:900;}
+
+/* Streamlit tabs */
+button[data-baseweb="tab"]{font-weight:700;}
+button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
+
+
+
+/* Premium tables */
+.premium-table-wrap{
+    background:#FFFFFF;
+    border:1px solid rgba(18,62,112,.12);
+    border-radius:16px;
+    padding:10px 10px 8px 10px;
+    box-shadow:0 8px 20px rgba(15,23,42,.05);
+    overflow-x:auto;
+    margin:8px 0 18px 0;
+}
+.premium-table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0;
+    font-size:.82rem;
+    color:#1F2937;
+}
+.premium-table th{
+    background:linear-gradient(135deg, var(--interey-blue-2) 0%, var(--interey-blue) 100%);
+    color:#FFFFFF;
+    padding:9px 10px;
+    text-align:right;
+    font-weight:850;
+    border-right:1px solid rgba(255,255,255,.16);
+    white-space:nowrap;
+}
+.premium-table th:first-child{
+    text-align:left;
+    border-top-left-radius:10px;
+}
+.premium-table th:last-child{
+    border-top-right-radius:10px;
+    border-right:none;
+}
+.premium-table td{
+    padding:8px 10px;
+    text-align:right;
+    border-bottom:1px solid #E5EAF0;
+    white-space:nowrap;
+}
+.premium-table td:first-child{
+    text-align:left;
+    font-weight:800;
+    color:var(--interey-blue-2);
+}
+.premium-table tr:nth-child(even) td{background:#F8FAFC;}
+.premium-table tr.highlight-row td{background:#EEF6FF; font-weight:850;}
+.premium-table tr.risk-row td{background:#FFF7F7;}
+.premium-table tr.warn-row td{background:#FFFBEB;}
+.premium-table tr.attention-row td{background:#FFF7ED;}
+.premium-table tr.critical-row td{background:#FEF2F2; font-weight:800;}
+.backlog-alert{background:linear-gradient(135deg,#7F1D1D 0%,#DC2626 100%);color:#FFFFFF;border-radius:18px;padding:16px 18px;margin:12px 0 16px 0;box-shadow:0 10px 24px rgba(185,28,28,.18);border:1px solid rgba(255,255,255,.18);}
+.backlog-alert-title{font-size:.80rem;text-transform:uppercase;letter-spacing:.08em;font-weight:900;opacity:.82;}
+.backlog-alert-value{font-size:1.28rem;font-weight:950;margin-top:5px;line-height:1.18;}
+.backlog-alert-sub{font-size:.82rem;opacity:.88;margin-top:5px;}
+.premium-table tr.attention-row td{background:#FFF7ED;}
+.premium-table tr.critical-row td{background:#FEE2E2; font-weight:850;}
+.engineer-table td:nth-child(1), .engineer-table th:nth-child(1){text-align:left;}
+.engineer-table td:nth-child(7), .engineer-table th:nth-child(7), .engineer-table td:nth-child(8), .engineer-table th:nth-child(8){text-align:left;}
+.premium-table td.total-col{font-weight:900; color:var(--interey-blue-2); background:#EEF3F8;}
+.status-good{color:#047857; font-weight:900;}
+.status-warn{color:#B45309; font-weight:900;}
+.status-bad{color:#B91C1C; font-weight:900;}
+.table-caption-premium{font-size:.78rem; color:#64748B; margin-top:-8px; margin-bottom:8px;}
+
+@media (max-width: 1100px){
+    .radar-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
+    .hero-date{text-align:left;}
+}
+
+
+/* NEXT LEVEL v56 */
+.exec-pulse-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:4px 0 18px 0;}
+.exec-pulse{background:#FFFFFF;border:1px solid rgba(18,62,112,.12);border-radius:16px;padding:12px 14px;box-shadow:0 7px 18px rgba(15,23,42,.045);position:relative;overflow:hidden;}
+.exec-pulse:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--interey-blue);}
+.exec-pulse.green:before{background:var(--interey-green);}.exec-pulse.red:before{background:var(--interey-red);}.exec-pulse.yellow:before{background:var(--interey-yellow);}.exec-pulse.gray:before{background:var(--interey-gray);}
+.exec-pulse-label{font-size:.70rem;text-transform:uppercase;letter-spacing:.075em;color:#64748B;font-weight:900;}
+.exec-pulse-value{font-size:1.18rem;color:#0B1F4D;font-weight:950;margin-top:5px;line-height:1.08;}
+.exec-pulse-sub{font-size:.76rem;color:#64748B;margin-top:5px;line-height:1.28;}
+.drill-wrap{background:linear-gradient(135deg,#F8FAFC 0%,#FFFFFF 100%);border:1px solid rgba(18,62,112,.14);border-radius:20px;padding:15px 16px;margin:10px 0 18px 0;box-shadow:0 8px 22px rgba(15,23,42,.05);}
+.drill-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px;}
+.drill-title{font-size:1.02rem;font-weight:950;color:#0B1F4D;}.drill-sub{font-size:.77rem;color:#64748B;}
+.drill-badge{background:#EAF2FB;border:1px solid rgba(18,62,112,.16);color:#123E70;border-radius:999px;padding:6px 10px;font-size:.73rem;font-weight:900;white-space:nowrap;}
+.drill-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;}
+.drill-tile{background:#FFFFFF;border:1px solid #E2E8F0;border-radius:14px;padding:10px 11px;}
+.drill-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:#64748B;font-weight:850;}
+.drill-value{font-size:1.02rem;color:#0B1F4D;font-weight:950;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.drill-note{font-size:.72rem;color:#64748B;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+@media (max-width:1200px){.exec-pulse-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.drill-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media (max-width:760px){.exec-pulse-grid,.drill-grid{grid-template-columns:1fr;}.drill-head{display:block;}.drill-badge{display:inline-block;margin-top:8px;}}
+
+</style>
+""", unsafe_allow_html=True)
+
+MONTHS_ES = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
+MONTH_ORDER = [MONTHS_ES[i] for i in range(1,13)]
+MONTHS_FULL_TO_NUM = {"ENERO":1,"FEBRERO":2,"MARZO":3,"ABRIL":4,"MAYO":5,"JUNIO":6,"JULIO":7,"AGOSTO":8,"SEPTIEMBRE":9,"SETIEMBRE":9,"OCTUBRE":10,"NOVIEMBRE":11,"DICIEMBRE":12}
+START_DATE = pd.Timestamp("2024-01-01")
+VALID_YEARS = [2024, 2025, 2026]
+PROJECT_TARGETS = {2024: 500000, 2025: 700000, 2026: 750000}
+STORE_TARGETS = {2024: 150000, 2025: 250000, 2026: 275000}
+ACTIVE_PROJECT_ENGINEERS_FOR_TARGET = 4
+EXCLUDE_FROM_ENGINEER_ANALYSIS = {"ORLANDO MARTINEZ", "ANA MARGARITA SAHAGUN"}
+
+DEFAULT_PROJECT_FILES = ["Proyectos 2024-2026.csv", "Reporte 2024-2026.csv", "Reporte 2024-2026.csv"]
+DEFAULT_STORE_FILES = ["Tienda 2024-2026.csv", "reporte 2024-2026.csv"]
+DEFAULT_EXPENSE_FILES = ["GASTOS OPERATIVOS 2026.xlsx", "GASTOS OPERATIVOS 2026(8).xlsx", "VENTAS INTEREY PROYECTOS Y TIENDA 2026.xlsx", "Gastos INTEREY 2026.xlsx", "Gastos 2026.xlsx"]
+DEFAULT_BACKLOG_FILES = ["Proyectos en ejecucion.csv", "Proyectos%20en%20ejecucion.csv", "Proyectos en ejecución.csv"]
+
+
+def fmt_money(x):
+    try:
+        if pd.isna(x):
+            return "$0"
+        return f"${float(x):,.0f}"
+    except Exception:
+        return "$0"
+
+
+def fmt_pct(x):
+    try:
+        if pd.isna(x):
+            return "0.0%"
+        return f"{float(x):,.1f}%"
+    except Exception:
+        return "0.0%"
+
+
+def parse_money(x):
+    if pd.isna(x):
+        return pd.NA
+    s = str(x).strip()
+    if s == "" or s.lower() in ["nan", "none"]:
+        return pd.NA
+    # formato tipo ($ -494.61), (-6,484.63 %), $17.32
+    neg = "(" in s and ")" in s
+    s = s.replace("$", "").replace(",", "").replace("%", "").replace("(", "").replace(")", "").strip()
+    s = s.replace(" ", "")
+    try:
+        val = float(s)
+        return -abs(val) if neg else val
+    except Exception:
+        return pd.NA
+
+
+def parse_date_project(series):
+    dt = pd.to_datetime(series, format="%d/%m/%Y", errors="coerce")
+    if dt.isna().all():
+        dt = pd.to_datetime(series, dayfirst=True, errors="coerce")
+    return dt
+
+
+def parse_date_store(series):
+    # Puede venir como "09:21 04/01/2024" o "04/01/2024"
+    raw = series.astype(str).str.strip()
+    extracted = raw.str.extract(r"(\d{1,2}/\d{1,2}/\d{4})", expand=False)
+    candidate = extracted.fillna(raw)
+    return pd.to_datetime(candidate, dayfirst=True, errors="coerce")
+
+
+def add_time_cols(df):
+    df["Año"] = df["Fecha"].dt.year
+    df["Mes_Num"] = df["Fecha"].dt.month
+    df["Mes"] = df["Mes_Num"].map(MONTHS_ES)
+    df["Periodo"] = df["Fecha"].dt.strftime("%Y-%m")
+    return df
+
+
+def find_default_file(names):
+    here = Path(__file__).resolve().parent
+
+    # 1) Primero busca coincidencia exacta.
+    for name in names:
+        p = here / name
+        if p.exists():
+            return p
+
+    # 2) Respaldo tolerante: permite variantes del nombre generadas al descargar/copiar archivos.
+    patterns = []
+    for name in names:
+        stem = Path(name).stem
+        suffix = Path(name).suffix
+        if stem:
+            patterns.append(f"{stem}*{suffix}")
+
+    # Caso especial del archivo administrativo mensual de gastos.
+    if any("GASTOS OPERATIVOS 2026" in str(n).upper() for n in names):
+        patterns.insert(0, "GASTOS OPERATIVOS 2026*.xlsx")
+
+    for pattern in patterns:
+        matches = sorted(here.glob(pattern))
+        if matches:
+            return matches[0]
+
+    return None
+
+
+def load_projects(uploaded_file):
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+    else:
+        p = find_default_file(DEFAULT_PROJECT_FILES)
+        if p is None:
+            return pd.DataFrame()
+        df = pd.read_csv(p)
+
+    for col in ["Promotor", "Cliente", "Moneda", "Descripcion"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+
+    for col in ["TC", "Cotizado cliente", "Utilidad bruta", "Utilidad", "Utilidad después de indirectos"]:
+        if col in df.columns:
+            df[col] = df[col].apply(parse_money)
+
+    if "Fecha" not in df.columns:
+        return pd.DataFrame()
+    df["Fecha"] = parse_date_project(df["Fecha"])
+    df = add_time_cols(df)
+
+    # Corte automático: conserva toda la información disponible desde 2024.
+    df = df[(df["Fecha"] >= START_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
+
+    # Nota: Ana Margarita Sahagun y Orlando Martinez SÍ se incluyen en KPIs corporativos.
+    # Solo se excluyen en los comparativos de desempeño por ingeniero/promotor.
+
+    df["Moneda"] = df.get("Moneda", "MXN")
+    df["Moneda"] = df["Moneda"].fillna("MXN").astype(str).str.upper()
+    df["TC"] = df.get("TC", 1.0)
+    df["TC"] = pd.to_numeric(df["TC"], errors="coerce").fillna(1.0)
+    df["Tipo_Cambio_Aplicado"] = df.apply(lambda r: r["TC"] if r["Moneda"] == "USD" else 1.0, axis=1)
+
+    df["Ventas_MXN"] = pd.to_numeric(df.get("Cotizado cliente", 0), errors="coerce").fillna(0) * df["Tipo_Cambio_Aplicado"]
+    if "Utilidad bruta" not in df.columns:
+        st.warning("El archivo de proyectos no trae la columna 'Utilidad bruta'. Se usará 'Utilidad después de indirectos' como respaldo.")
+        util_source = "Utilidad después de indirectos" if "Utilidad después de indirectos" in df.columns else "Utilidad"
+    else:
+        util_source = "Utilidad bruta"
+    df["Utilidad_Bruta_MXN"] = pd.to_numeric(df.get(util_source, 0), errors="coerce").fillna(0) * df["Tipo_Cambio_Aplicado"]
+    df["Margen_Bruto_Pct"] = (df["Utilidad_Bruta_MXN"] / df["Ventas_MXN"].replace(0, pd.NA)) * 100
+    df["Unidad"] = "Proyectos"
+    return df
+
+
+def load_backlog(uploaded_file):
+    """Carga el snapshot vigente de proyectos con OC pendientes de facturar.
+
+    Este archivo sustituye al anterior en cada corte mensual; no se acumula.
+    """
+    if uploaded_file is not None:
+        try:
+            df = pd.read_csv(uploaded_file)
+        except Exception as exc:
+            st.warning(f"No fue posible leer el archivo de ingresos comprometidos: {exc}")
+            return pd.DataFrame()
+    else:
+        p = find_default_file(DEFAULT_BACKLOG_FILES)
+        if p is None:
+            return pd.DataFrame()
+        try:
+            df = pd.read_csv(p)
+        except Exception as exc:
+            st.warning(f"No fue posible leer el archivo base de ingresos comprometidos: {exc}")
+            return pd.DataFrame()
+
+    if df.empty:
+        return pd.DataFrame()
+
+    df.columns = [str(c).strip() for c in df.columns]
+    required = ["Fecha", "Cliente", "Cotizado cliente"]
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        st.warning("El archivo de ingresos comprometidos no contiene: " + ", ".join(missing))
+        return pd.DataFrame()
+
+    for col in ["Promotor", "Cliente", "Descripcion", "Moneda", "Status"]:
+        if col in df.columns:
+            df[col] = df[col].fillna("").astype(str).str.strip()
+
+    raw = df["Fecha"].astype(str).str.strip()
+    dt = pd.to_datetime(raw, format="%d/%m/%y", errors="coerce")
+    missing_dt = dt.isna()
+    if missing_dt.any():
+        dt.loc[missing_dt] = pd.to_datetime(raw.loc[missing_dt], format="%d/%m/%Y", errors="coerce")
+    missing_dt = dt.isna()
+    if missing_dt.any():
+        dt.loc[missing_dt] = pd.to_datetime(raw.loc[missing_dt], dayfirst=True, errors="coerce")
+    df["Fecha_OC"] = dt
+    df = df[df["Fecha_OC"].notna()].copy()
+
+    for col in ["TC", "Cotizado cliente"]:
+        if col in df.columns:
+            df[col] = df[col].apply(parse_money)
+
+    df["Moneda"] = df.get("Moneda", "MXN")
+    df["Moneda"] = df["Moneda"].fillna("MXN").astype(str).str.upper()
+    df["TC"] = pd.to_numeric(df.get("TC", 1.0), errors="coerce").fillna(1.0)
+    df["Tipo_Cambio_Aplicado"] = df.apply(lambda r: r["TC"] if r["Moneda"] == "USD" else 1.0, axis=1)
+    df["Importe_Pendiente_MXN"] = pd.to_numeric(df["Cotizado cliente"], errors="coerce").fillna(0) * df["Tipo_Cambio_Aplicado"]
+
+    today = pd.Timestamp.today().normalize()
+    df["Dias_Abiertos"] = (today - df["Fecha_OC"].dt.normalize()).dt.days.clip(lower=0)
+    df["Periodo_OC"] = df["Fecha_OC"].dt.to_period("M").astype(str)
+    df["Mes_OC"] = df["Fecha_OC"].dt.month.map(MONTHS_ES)
+    df["Proyecto"] = df.get("Descripcion", "Sin descripción")
+    df["Responsable"] = df.get("Promotor", "Sin responsable")
+
+    def age_bucket(days):
+        if days <= 30:
+            return "🟢 0–30 días"
+        if days <= 60:
+            return "🟡 31–60 días"
+        if days <= 90:
+            return "🟠 61–90 días"
+        return "🔴 Más de 90 días"
+
+    df["Antigüedad"] = df["Dias_Abiertos"].apply(age_bucket)
+    if "Id" in df.columns:
+        df = df.drop_duplicates(subset=["Id"], keep="last")
+    else:
+        df = df.drop_duplicates(keep="last")
+    return df.reset_index(drop=True)
+
+
+def load_store(uploaded_file):
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+    else:
+        p = find_default_file(DEFAULT_STORE_FILES)
+        if p is None:
+            return pd.DataFrame()
+        df = pd.read_csv(p)
+
+    for col in ["Cliente", "Status", "Pago", "Facturado"]:
+        if col in df.columns:
+            df[col] = df[col].astype(str).str.strip()
+
+    for col in ["SubTotal", "Total", "Util $", "Tienda $", "Desc $", "Iva $"]:
+        if col in df.columns:
+            df[col] = df[col].apply(parse_money)
+
+    if "Fecha" not in df.columns:
+        return pd.DataFrame()
+    df["Fecha"] = parse_date_store(df["Fecha"])
+    df = add_time_cols(df)
+    df = df[(df["Fecha"] >= START_DATE) & (df["Año"].isin(VALID_YEARS))].copy()
+
+    # TIENDA: solo considerar ventas activas.
+    # Regla de negocio: cualquier registro con Status/Estatus cancelado NO debe afectar ventas, utilidad, forecast ni consolidado.
+    if "Status" in df.columns:
+        df["Status_Normalizado"] = df["Status"].fillna("").astype(str).str.strip().str.upper()
+        df = df[df["Status_Normalizado"].eq("ACTIVO")].copy()
+
+    df["Ventas_MXN"] = pd.to_numeric(df.get("Total", 0), errors="coerce").fillna(0)
+    df["Utilidad_Bruta_MXN"] = pd.to_numeric(df.get("Util $", 0), errors="coerce").fillna(0)
+    df["Margen_Bruto_Pct"] = (df["Utilidad_Bruta_MXN"] / df["Ventas_MXN"].replace(0, pd.NA)) * 100
+    df["Promotor"] = "JAVIER VILLANUEVA"
+    df["Unidad"] = "Tienda"
+    return df
+
+
+def load_expenses(expense_file):
+    """
+    Lee automáticamente GASTOS OPERATIVOS 2026.xlsx.
+
+    Fuente oficial:
+    - Proyectos: hoja RESUMEN, fila "Total general".
+    - Tienda: hoja "GASTOS TIENDA 2026", bloque 2026,
+      fila "GASTOS Total general".
+
+    Los meses todavía no capturados permanecen como pendientes (NA),
+    para no tratarlos como gasto $0.
+    """
+    empty_cols = [
+        "Año", "Mes_Num", "Mes",
+        "Gasto_Proyectos", "Gasto_Tienda",
+        "Disponible_Proyectos", "Disponible_Tienda"
+    ]
+
+    try:
+        if expense_file is not None:
+            xls = pd.ExcelFile(expense_file)
+        else:
+            p = find_default_file(DEFAULT_EXPENSE_FILES)
+            if p is None:
+                st.warning(
+                    "No encontré el archivo de gastos en GitHub/carpeta del dashboard. "
+                    "Verifica que exista 'GASTOS OPERATIVOS 2026.xlsx'."
+                )
+                return pd.DataFrame(columns=empty_cols)
+            xls = pd.ExcelFile(p)
+    except Exception as exc:
+        st.warning(f"No fue posible abrir el archivo de gastos: {exc}")
+        return pd.DataFrame(columns=empty_cols)
+
+    month_names = [
+        "ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO",
+        "JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"
+    ]
+
+    # ---------- PROYECTOS ----------
+    project_by_month = {m: pd.NA for m in range(1, 13)}
+    project_available = {m: False for m in range(1, 13)}
+
+    resumen_sheet = next(
+        (s for s in xls.sheet_names if str(s).strip().upper() == "RESUMEN"),
+        None
+    )
+
+    if resumen_sheet is None:
+        st.warning("No encontré la hoja 'RESUMEN' en el archivo de gastos.")
+    else:
+        raw = pd.read_excel(xls, sheet_name=resumen_sheet, header=None)
+
+        header_idx = next(
+            (
+                i for i in range(len(raw))
+                if str(raw.iloc[i, 0]).strip().upper() == "CONCEPTO"
+                and "ENERO" in [str(v).strip().upper() for v in raw.iloc[i].tolist()]
+            ),
+            None
+        )
+
+        total_idx = None
+        if header_idx is not None:
+            total_idx = next(
+                (
+                    i for i in range(header_idx + 1, len(raw))
+                    if str(raw.iloc[i, 0]).strip().upper() == "TOTAL GENERAL"
+                ),
+                None
+            )
+
+        if header_idx is None or total_idx is None:
+            st.warning("No pude identificar 'CONCEPTO' / 'Total general' en la hoja RESUMEN.")
+        else:
+            headers = [str(v).strip().upper() for v in raw.iloc[header_idx].tolist()]
+
+            # Para Proyectos, las hojas mensuales existentes indican qué meses ya están capturados/cerrados.
+            available_month_sheets = {
+                str(s).strip().upper()
+                for s in xls.sheet_names
+                if str(s).strip().upper() in month_names
+            }
+
+            for m, month_name in enumerate(month_names, start=1):
+                if month_name not in headers:
+                    continue
+                col_idx = headers.index(month_name)
+                val = parse_money(raw.iloc[total_idx, col_idx])
+
+                if month_name in available_month_sheets and not pd.isna(val):
+                    project_by_month[m] = float(val)
+                    project_available[m] = True
+
+    # ---------- TIENDA ----------
+    store_by_month = {m: pd.NA for m in range(1, 13)}
+    store_available = {m: False for m in range(1, 13)}
+
+    store_sheet = next(
+        (s for s in xls.sheet_names if str(s).strip().upper() == "GASTOS TIENDA 2026"),
+        None
+    )
+    if store_sheet is None:
+        store_sheet = next(
+            (s for s in xls.sheet_names if "GASTOS TIENDA" in str(s).upper()),
+            None
+        )
+
+    if store_sheet is None:
+        st.warning("No encontré la hoja 'GASTOS TIENDA 2026'.")
+    else:
+        raw_store = pd.read_excel(xls, sheet_name=store_sheet, header=None)
+
+        # Localiza primero el bloque 2026 para no leer por accidente el bloque 2025.
+        block_start = next(
+            (
+                i for i in range(len(raw_store))
+                if "GASTOS INTEREY STORE" in str(raw_store.iloc[i, 0]).strip().upper()
+                and "2026" in str(raw_store.iloc[i, 0]).strip().upper()
+            ),
+            None
+        )
+
+        header_idx = None
+        total_idx = None
+
+        if block_start is not None:
+            header_idx = next(
+                (
+                    i for i in range(block_start + 1, len(raw_store))
+                    if str(raw_store.iloc[i, 0]).strip().upper() == "CONCEPTO"
+                ),
+                None
+            )
+
+        if header_idx is not None:
+            total_idx = next(
+                (
+                    i for i in range(header_idx + 1, len(raw_store))
+                    if str(raw_store.iloc[i, 0]).strip().upper() == "GASTOS TOTAL GENERAL"
+                ),
+                None
+            )
+
+        if header_idx is None or total_idx is None:
+            st.warning(
+                "No pude identificar el bloque 2026 / 'GASTOS Total general' "
+                "en la hoja GASTOS TIENDA 2026."
+            )
+        else:
+            headers = [str(v).strip().upper() for v in raw_store.iloc[header_idx].tolist()]
+            detail = raw_store.iloc[header_idx + 1:total_idx].copy()
+
+            # Detecta el último mes realmente capturado en el bloque 2026.
+            last_available_month = 0
+            for m, month_name in enumerate(month_names, start=1):
+                if month_name not in headers:
+                    continue
+                col_idx = headers.index(month_name)
+                month_detail = detail.iloc[:, col_idx]
+
+                # Si hay al menos una partida informada en ese mes, el mes está disponible.
+                if month_detail.notna().any():
+                    last_available_month = m
+
+            for m, month_name in enumerate(month_names, start=1):
+                if month_name not in headers or m > last_available_month:
+                    continue
+
+                col_idx = headers.index(month_name)
+                val = parse_money(raw_store.iloc[total_idx, col_idx])
+                if not pd.isna(val):
+                    store_by_month[m] = float(val)
+                    store_available[m] = True
+
+    rows = []
+    for m in range(1, 13):
+        rows.append({
+            "Año": 2026,
+            "Mes_Num": m,
+            "Mes": MONTHS_ES[m],
+            "Gasto_Proyectos": project_by_month[m],
+            "Gasto_Tienda": store_by_month[m],
+            "Disponible_Proyectos": project_available[m],
+            "Disponible_Tienda": store_available[m],
+        })
+
+    result = pd.DataFrame(rows)
+
+    # Validación administrativa visible: estos valores deben conciliar con el Excel.
+    p_total = pd.to_numeric(
+        result.loc[result["Disponible_Proyectos"], "Gasto_Proyectos"],
+        errors="coerce"
+    ).sum()
+    t_total = pd.to_numeric(
+        result.loc[result["Disponible_Tienda"], "Gasto_Tienda"],
+        errors="coerce"
+    ).sum()
+
+    st.sidebar.caption(f"Excel gastos Proyectos reconocido: {fmt_money(p_total)}")
+    st.sidebar.caption(f"Excel gastos Tienda reconocido: {fmt_money(t_total)}")
+
+    return result
+
+
+def expenses_dict(expenses_df, year, months, unidad):
+    col = "Gasto_Proyectos" if unidad == "Proyectos" else "Gasto_Tienda"
+    if expenses_df.empty or col not in expenses_df.columns:
+        return {m: 0.0 for m in months}
+    temp = expenses_df[(expenses_df["Año"] == year) & (expenses_df["Mes_Num"].isin(months))].copy()
+    temp[col] = pd.to_numeric(temp[col], errors="coerce")
+    by_month = temp.groupby("Mes_Num")[col].sum(min_count=1).to_dict()
+    return {m: float(by_month[m]) if m in by_month and pd.notna(by_month[m]) else 0.0 for m in months}
+
+
+def expense_missing_months(expenses_df, year, months, unidad):
+    flag_col = "Disponible_Proyectos" if unidad == "Proyectos" else "Disponible_Tienda"
+    if expenses_df.empty or flag_col not in expenses_df.columns:
+        return list(months)
+    temp = expenses_df[expenses_df["Año"] == year].set_index("Mes_Num")
+    missing = []
+    for m in months:
+        if m not in temp.index or not bool(temp.loc[m, flag_col]):
+            missing.append(m)
+    return missing
+
+def closed_months_for_year(df, year):
+    months = sorted(df.loc[df["Año"] == year, "Mes_Num"].dropna().astype(int).unique().tolist())
+    if not months:
+        return []
+    # Regla: si el último mes cargado está incompleto por corte futuro, se excluye solo si supera corte real.
+    # Para 2026 el corte es mayo, así que mayo sí es mes cerrado del análisis solicitado.
+    return months
+
+
+def ytd_months_for_selected_year(selected_year, projects_df=None, store_df=None):
+    """Devuelve Enero..último mes con ventas del año seleccionado."""
+    months = set()
+    for df in [projects_df, store_df]:
+        if df is not None and not df.empty and "Año" in df.columns and "Mes_Num" in df.columns:
+            months.update(
+                df.loc[df["Año"] == selected_year, "Mes_Num"]
+                .dropna().astype(int).tolist()
+            )
+    if not months:
+        return list(range(1, 13))
+    return list(range(1, max(months) + 1))
+
+
+def latest_data_date(*dfs):
+    dates = []
+    for df in dfs:
+        if df is not None and not df.empty and "Fecha" in df.columns:
+            d = pd.to_datetime(df["Fecha"], errors="coerce").max()
+            if pd.notna(d):
+                dates.append(d)
+    return max(dates) if dates else None
+
+
+def fmt_date_es(dt):
+    if dt is None or pd.isna(dt):
+        return "Sin fecha"
+    full = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",
+            7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}
+    dt = pd.Timestamp(dt)
+    return f"{dt.day:02d} {full[dt.month]} {dt.year}"
+
+def yoy(curr, prev):
+    if prev in [0, None] or pd.isna(prev):
+        return None
+    return ((curr - prev) / prev) * 100
+
+
+def card(label, value, sub="", style=""):
+    return f"""
+    <div class="kpi-card {style}">
+        <div class="kpi-label">{label}</div>
+        <div class="kpi-value">{value}</div>
+        <div class="kpi-sub">{sub}</div>
+    </div>
+    """
+
+
+def trend_note(text):
+    st.markdown(f'<div class="trend-note">{text}</div>', unsafe_allow_html=True)
+
+
+def radar_interey(consol_fc, proj_fc, store_fc):
+    """
+    Radar INTEREY 4.0 · Executive Command Bar.
+    Resume el estado corporativo en una sola lectura, cuatro señales y una acción prioritaria.
+    """
+    gap = float(consol_fc.get("gap", 0) or 0)
+    cumplimiento = float(consol_fc.get("cumplimiento", 0) or 0)
+    utilidad_neta_proy = float(consol_fc.get("utilidad_neta_proy", 0) or 0)
+    venta_req = float(consol_fc.get("venta_req", 0) or 0)
+
+    proj_cump = float(proj_fc.get("cumplimiento", 0) or 0)
+    store_cump = float(store_fc.get("cumplimiento", 0) or 0)
+
+    emoji, _, forecast_status = status_from_pct(cumplimiento)
+
+    def radar_class_from_pct(value):
+        if value >= 100:
+            return "good", "En meta"
+        if value >= 90:
+            return "warn", "Seguimiento"
+        return "bad", "Riesgo"
+
+    proj_class, proj_status = radar_class_from_pct(proj_cump)
+    store_class, store_status = radar_class_from_pct(store_cump)
+
+    if utilidad_neta_proy > 0:
+        util_class = "good"
+        util_status = "Cierre positivo"
+    elif utilidad_neta_proy == 0:
+        util_class = "neutral"
+        util_status = "Punto de equilibrio"
+    else:
+        util_class = "bad"
+        util_status = "Cierre negativo"
+
+    if gap >= 0:
+        gap_class = "good"
+        gap_label = "Excedente"
+        gap_status = "Sobre meta"
+    elif cumplimiento >= 90:
+        gap_class = "warn"
+        gap_label = "Brecha"
+        gap_status = "Recuperable"
+    else:
+        gap_class = "bad"
+        gap_label = "Brecha"
+        gap_status = "Bajo objetivo"
+
+    if cumplimiento >= 100:
+        headline = "INTEREY proyecta cerrar por encima de la meta anual."
+        headline_sub = "El ritmo comercial actual permite una lectura favorable; el foco pasa a proteger margen y ejecución."
+    elif cumplimiento >= 90:
+        headline = "INTEREY está cerca de la meta anual y requiere seguimiento."
+        headline_sub = "El cierre depende de sostener el ritmo comercial y controlar gastos durante los meses restantes."
+    else:
+        headline = "INTEREY proyecta cerrar por debajo de la meta anual."
+        headline_sub = "La prioridad es recuperar la brecha comercial sin comprometer la rentabilidad."
+
+    if gap >= 0:
+        action_label = "Prioridad ejecutiva"
+        action_text = "Proteger el excedente proyectado y sostener la rentabilidad del cierre."
+        action_value = fmt_money_signed(gap)
+    else:
+        action_label = "Acción prioritaria"
+        action_text = "Venta promedio mensual requerida para llevar la proyección hacia la meta anual."
+        action_value = fmt_money(venta_req)
+
+    html = f"""
+    <div class="radar-exec">
+        <div class="radar-exec-top">
+            <div class="radar-exec-brand">
+                <div class="radar-exec-icon">📡</div>
+                <div>
+                    <div class="radar-exec-title">Radar INTEREY 4.0</div>
+                    <div class="radar-exec-kicker">Executive Command Bar</div>
+                </div>
+            </div>
+            <div class="radar-exec-status">{emoji} ESTADO GENERAL · {forecast_status.upper()}</div>
+        </div>
+
+        <div class="radar-exec-summary">
+            <div class="radar-exec-summary-label">Lectura ejecutiva</div>
+            <div class="radar-exec-summary-title">{headline}</div>
+            <div class="radar-exec-summary-sub">{headline_sub}</div>
+        </div>
+
+        <div class="radar-exec-grid">
+            <div class="radar-exec-metric {store_class}">
+                <div class="radar-exec-label">
+                    <span class="radar-exec-signal">
+                        <span class="radar-exec-dot {store_class}"></span>Tienda
+                    </span>
+                </div>
+                <div class="radar-exec-value">{fmt_pct(store_cump)}</div>
+                <div class="radar-exec-meta">{store_status} · cumplimiento proyectado vs meta anual</div>
+            </div>
+
+            <div class="radar-exec-metric {proj_class}">
+                <div class="radar-exec-label">
+                    <span class="radar-exec-signal">
+                        <span class="radar-exec-dot {proj_class}"></span>Proyectos
+                    </span>
+                </div>
+                <div class="radar-exec-value">{fmt_pct(proj_cump)}</div>
+                <div class="radar-exec-meta">{proj_status} · cumplimiento proyectado vs meta anual</div>
+            </div>
+
+            <div class="radar-exec-metric {util_class}">
+                <div class="radar-exec-label">
+                    <span class="radar-exec-signal">
+                        <span class="radar-exec-dot {util_class}"></span>Utilidad estimada
+                    </span>
+                </div>
+                <div class="radar-exec-value">{fmt_money_compact(utilidad_neta_proy)}</div>
+                <div class="radar-exec-meta">{util_status} · utilidad neta proyectada al cierre</div>
+            </div>
+
+            <div class="radar-exec-metric {gap_class}">
+                <div class="radar-exec-label">
+                    <span class="radar-exec-signal">
+                        <span class="radar-exec-dot {gap_class}"></span>{gap_label}
+                    </span>
+                </div>
+                <div class="radar-exec-value">{fmt_money_compact(gap)}</div>
+                <div class="radar-exec-meta">{gap_status} · diferencia proyectada contra meta anual</div>
+            </div>
+        </div>
+
+        <div class="radar-exec-action">
+            <div class="radar-exec-action-left">
+                <div class="radar-exec-action-icon">🎯</div>
+                <div>
+                    <div class="radar-exec-action-label">{action_label}</div>
+                    <div class="radar-exec-action-text">{action_text}</div>
+                </div>
+            </div>
+            <div class="radar-exec-action-value">{action_value}</div>
+        </div>
+    </div>
+    """
+    # st.html renderiza HTML directamente y evita que Markdown interprete
+    # la sangría interna como bloques de código.
+    st.html(html)
+
+
+def status_from_pct(pct, green=100, yellow=90):
+    try:
+        pct = float(pct)
+    except Exception:
+        return "🔴", "red", "Riesgo alto"
+    if pct >= green:
+        return "🟢", "green", "En línea"
+    if pct >= yellow:
+        return "🟡", "yellow", "Riesgo moderado"
+    return "🔴", "red", "Riesgo alto"
+
+
+def compliance_text(pct):
+    emoji, _, status = status_from_pct(pct)
+    return f"{emoji} Cumplimiento proyectado: {fmt_pct(pct)} · {status}"
+
+
+def gap_label_and_style(gap):
+    if gap >= 0:
+        return "🟢 Excedente proyectado", "green", "proyección arriba de meta"
+    return "🔴 Faltante proyectado", "red", "proyección debajo de meta"
+
+
+def fmt_money_signed(x):
+    try:
+        x = float(x)
+    except Exception:
+        x = 0
+    sign = "+" if x > 0 else ""
+    return f"{sign}${x:,.0f}"
+
+
+def fmt_money_compact(x):
+    try:
+        x = float(x)
+    except Exception:
+        x = 0
+    sign = "-" if x < 0 else ""
+    ax = abs(x)
+    if ax >= 1_000_000:
+        return f"{sign}${ax/1_000_000:,.2f} M"
+    if ax >= 1_000:
+        return f"{sign}${ax/1_000:,.0f} K"
+    return f"{sign}${ax:,.0f}"
+
+
+def summary_metrics(df):
+    ventas = df["Ventas_MXN"].sum() if not df.empty else 0
+    utilidad = df["Utilidad_Bruta_MXN"].sum() if not df.empty else 0
+    margen = utilidad / ventas * 100 if ventas else 0
+    clientes = df["Cliente"].nunique() if "Cliente" in df.columns and not df.empty else 0
+    ticket = ventas / clientes if clientes else 0
+    return ventas, utilidad, margen, clientes, ticket
+
+
+def expense_inputs(prefix, year, months):
+    st.sidebar.markdown(f"### Gastos {prefix} {year}")
+    expenses = {}
+    cols = st.sidebar.columns(2)
+    for idx, m in enumerate(months):
+        with cols[idx % 2]:
+            expenses[m] = st.number_input(
+                f"{prefix} {MONTHS_ES[m]}", min_value=0.0, value=0.0, step=10000.0, format="%.0f", key=f"gasto_{prefix}_{year}_{m}"
+            )
+    return expenses
+
+
+def forecast_block(label, df_ytd, gastos_dict, meta_mensual, months_ytd, multiplier=1):
+    meses_count = max(len(months_ytd), 1)
+    ventas_ytd = df_ytd["Ventas_MXN"].sum() if not df_ytd.empty else 0
+    util_ytd = df_ytd["Utilidad_Bruta_MXN"].sum() if not df_ytd.empty else 0
+    gasto_ytd = sum(float(gastos_dict.get(m, 0)) for m in months_ytd)
+    utilidad_neta_ytd = util_ytd - gasto_ytd
+    margen_neto_ytd = utilidad_neta_ytd / ventas_ytd * 100 if ventas_ytd else 0
+
+    promedio_ventas = ventas_ytd / meses_count
+    promedio_util = util_ytd / meses_count
+    promedio_gasto = gasto_ytd / meses_count if meses_count else 0
+
+    forecast_ventas = promedio_ventas * 12
+    forecast_util = promedio_util * 12
+    gasto_anual_proy = promedio_gasto * 12
+    utilidad_neta_proy = forecast_util - gasto_anual_proy
+    margen_neto_proy = utilidad_neta_proy / forecast_ventas * 100 if forecast_ventas else 0
+
+    meta_anual = meta_mensual * 12 * multiplier
+    cumplimiento = forecast_ventas / meta_anual * 100 if meta_anual else 0
+    gap = forecast_ventas - meta_anual
+    meses_restantes = max(12 - meses_count, 0)
+    venta_req = (meta_anual - ventas_ytd) / meses_restantes if meses_restantes else 0
+    return {
+        "label": label,
+        "ventas_ytd": ventas_ytd,
+        "utilidad_bruta_ytd": util_ytd,
+        "gasto_ytd": gasto_ytd,
+        "utilidad_neta_ytd": utilidad_neta_ytd,
+        "margen_neto_ytd": margen_neto_ytd,
+        "forecast_ventas": forecast_ventas,
+        "forecast_utilidad_bruta": forecast_util,
+        "gasto_anual_proy": gasto_anual_proy,
+        "utilidad_neta_proy": utilidad_neta_proy,
+        "margen_neto_proy": margen_neto_proy,
+        "meta_anual": meta_anual,
+        "cumplimiento": cumplimiento,
+        "gap": gap,
+        "venta_req": venta_req,
+        "meses_restantes": meses_restantes,
+    }
+
+
+def style_exec_chart(fig, height=390, money_axis=False, legend=True):
+    """Estilo gráfico ejecutivo INTEREY consistente y limpio."""
+    fig.update_layout(
+        template="plotly_white",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        height=height,
+        margin=dict(l=20, r=18, t=60, b=38),
+        font=dict(color="#334155", family="Arial"),
+        title=dict(font=dict(size=17, color="#0B1F4D"), x=0.01, xanchor="left"),
+        hoverlabel=dict(bgcolor="#0B1F4D", font_color="#FFFFFF"),
+        legend=dict(
+            orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1,
+            title_text=""
+        ) if legend else dict(visible=False),
+    )
+    fig.update_xaxes(showgrid=False, linecolor="#DCE3EC", tickfont=dict(color="#64748B"), title_text="")
+    fig.update_yaxes(gridcolor="#E9EEF5", zeroline=False, tickfont=dict(color="#64748B"), title_text="")
+    if money_axis:
+        fig.update_yaxes(tickprefix="$", tickformat=",.0f")
+    return fig
+
+
+PLOT_CONFIG = {"displayModeBar": False, "responsive": True}
+
+
+def _selected_plotly_point(event):
+    """Extrae (año, mes) desde el estado real de selección de Streamlit/Plotly."""
+    if event is None:
+        return None
+
+    try:
+        # Streamlit 1.61 entrega PlotlyState, compatible con atributo y diccionario.
+        selection = getattr(event, "selection", None)
+        if selection is None and hasattr(event, "get"):
+            selection = event.get("selection", {})
+
+        points = getattr(selection, "points", None)
+        if points is None and hasattr(selection, "get"):
+            points = selection.get("points", [])
+
+        if not points:
+            return None
+
+        point = points[0]
+        if hasattr(point, "get"):
+            custom = point.get("customdata")
+            x = point.get("x")
+            curve_number = point.get("curve_number")
+        else:
+            custom = getattr(point, "customdata", None)
+            x = getattr(point, "x", None)
+            curve_number = getattr(point, "curve_number", None)
+
+        # Nuestra gráfica lleva customdata=[Año, Mes_Num].
+        if custom is not None and len(custom) >= 2:
+            return int(custom[0]), int(custom[1])
+
+        # Respaldo: el eje X siempre es Mes_Num.
+        if x is not None:
+            return None, int(round(float(x)))
+
+    except Exception:
+        return None
+
+    return None
+
+
+@st.fragment
+def render_month_chart_fragment(df, monthly, title, ycol, key, detail_label, interactive=True):
+    """
+    Gráfica mensual ejecutiva EXPERT FOCUS.
+
+    El año elegido en el control segmentado se convierte en el año "en foco":
+    - línea principal azul INTEREY, sólida y gruesa;
+    - halo sutil para separarla visualmente;
+    - años de contexto conservan identidad mediante tonos + patrones de línea;
+    - etiquetas directas al final de cada serie;
+    - todo el bloque vive dentro de @st.fragment para mantener transición suave.
+    """
+    if monthly.empty:
+        st.info("No hay datos para graficar.")
+        return
+
+    years = sorted(monthly["Año"].dropna().astype(int).unique().tolist())
+    if not years:
+        return
+
+    default_focus = globals().get("selected_year", max(years))
+    if default_focus not in years:
+        default_focus = max(years)
+
+    # ---------- SELECTOR DE AÑO EN FOCO ----------
+    if interactive and key and len(years) > 1:
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:8px;margin:2px 0 4px 0;">'
+            '<span style="font-size:.78rem;font-weight:900;color:#64748B;'
+            'letter-spacing:.05em;text-transform:uppercase;">Año en foco</span>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        focus_year = st.segmented_control(
+            "Año en foco",
+            options=years,
+            default=default_focus,
+            selection_mode="single",
+            required=True,
+            key=f"{key}_focus_year",
+            label_visibility="collapsed",
+            width="content",
+        )
+    else:
+        focus_year = default_focus
+
+    focus_year = int(focus_year)
+
+    # ---------- ESTILOS ESTABLES PARA AÑOS DE CONTEXTO ----------
+    # Los patrones permiten distinguir las series incluso sin depender solo del color.
+    dash_cycle = ["dot", "dash", "dashdot", "longdash"]
+    historical_colors = ["#B8C3D1", "#7D8DA3", "#9DAABD", "#66788F"]
+
+    dash_map = {}
+    hist_color_map = {}
+    h = 0
+    for idx, year in enumerate(years):
+        dash_map[year] = dash_cycle[idx % len(dash_cycle)]
+        if year != focus_year:
+            hist_color_map[year] = historical_colors[h % len(historical_colors)]
+            h += 1
+
+    fig = go.Figure()
+
+    # Halo del año en foco: crea profundidad sin convertir la gráfica en algo llamativo de más.
+    focus_data = monthly[monthly["Año"] == focus_year].sort_values("Mes_Num")
+    if not focus_data.empty:
+        fig.add_trace(go.Scatter(
+            x=focus_data["Mes_Num"],
+            y=focus_data[ycol],
+            mode="lines",
+            line=dict(color="rgba(18,62,112,0.12)", width=11),
+            hoverinfo="skip",
+            showlegend=False,
+            legendgroup=str(focus_year),
+            name=f"{focus_year} halo",
+        ))
+
+    # Series históricas + serie en foco.
+    for year in years:
+        temp = monthly[monthly["Año"] == year].sort_values("Mes_Num")
+        if temp.empty:
+            continue
+
+        is_focus = year == focus_year
+
+        if is_focus:
+            line_color = "#123E70"
+            line_width = 4.5
+            line_dash = "solid"
+            marker_size = 10
+            marker_color = "#123E70"
+            opacity = 1.0
+        else:
+            line_color = hist_color_map.get(year, "#94A3B8")
+            line_width = 2.35
+            line_dash = dash_map.get(year, "dash")
+            marker_size = 6.5
+            marker_color = line_color
+            opacity = 0.78
+
+        fig.add_trace(go.Scatter(
+            x=temp["Mes_Num"],
+            y=temp[ycol],
+            mode="lines+markers",
+            name=str(year),
+            legendgroup=str(year),
+            line=dict(
+                color=line_color,
+                width=line_width,
+                dash=line_dash,
+            ),
+            marker=dict(
+                size=marker_size,
+                color=marker_color,
+                line=dict(
+                    width=1.6 if is_focus else 0.8,
+                    color="#FFFFFF",
+                ),
+            ),
+            opacity=opacity,
+            customdata=temp[["Mes"]].values if "Mes" in temp.columns else None,
+            hovertemplate=(
+                f"<b>{year}</b><br>"
+                "Mes: %{x}<br>"
+                "$%{y:,.0f}"
+                "<extra></extra>"
+            ),
+        ))
+
+        # Etiqueta directa al final de cada serie.
+        last = temp.iloc[-1]
+        last_month = int(last["Mes_Num"])
+        last_value = float(last[ycol])
+
+        if is_focus:
+            label_text = f"<b>{year} · EN FOCO</b>"
+            label_color = "#123E70"
+            label_bg = "rgba(238,246,255,.96)"
+            label_border = "#B7CFEA"
+        else:
+            label_text = f"<b>{year}</b>"
+            label_color = line_color
+            label_bg = "rgba(255,255,255,.88)"
+            label_border = "rgba(148,163,184,.30)"
+
+        fig.add_annotation(
+            x=min(last_month + 0.18, 12.35),
+            y=last_value,
+            text=label_text,
+            showarrow=False,
+            xanchor="left",
+            yanchor="middle",
+            font=dict(size=10, color=label_color),
+            bgcolor=label_bg,
+            bordercolor=label_border,
+            borderwidth=1,
+            borderpad=4,
+        )
+
+    fig.update_layout(
+        title=title,
+        hovermode="x unified",
+        transition=dict(duration=280, easing="cubic-in-out"),
+        uirevision=f"{key}_focus_chart",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.03,
+            xanchor="right",
+            x=1,
+            title=None,
+            itemclick="toggle",
+            itemdoubleclick="toggleothers",
+        ),
+    )
+
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=list(range(1, 13)),
+        ticktext=MONTH_ORDER,
+        range=[0.65, 12.7],
+    )
+
+    style_exec_chart(fig, height=430, money_axis=True, legend=True)
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        config=PLOT_CONFIG,
+        key=f"{key}_chart_focus" if key else None,
+    )
+
+    if not interactive or not key:
+        return
+
+    st.caption(
+        f"🎯 {focus_year} está en foco. Los otros años permanecen visibles como contexto "
+        "con patrones distintos para compararlos de un vistazo."
+    )
+
+    # ---------- EXPLORADOR DEL MES ----------
+    available_months = sorted(
+        monthly.loc[monthly["Año"] == focus_year, "Mes_Num"]
+        .dropna()
+        .astype(int)
+        .unique()
+        .tolist()
+    )
+    if not available_months:
+        return
+
+    month_key = f"{key}_explore_month_{focus_year}"
+    default_month = max(available_months)
+
+    explore_month = st.segmented_control(
+        "Mes a explorar",
+        options=available_months,
+        default=default_month,
+        selection_mode="single",
+        required=True,
+        format_func=lambda m: MONTHS_ES.get(int(m), str(m)),
+        key=month_key,
+        label_visibility="collapsed",
+        width="stretch",
+    )
+
+    if explore_month is None:
+        return
+
+    render_month_drilldown(
+        df,
+        focus_year,
+        int(explore_month),
+        detail_label
+    )
+
+
+def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True, detail_label="Detalle mensual"):
+    """
+    Wrapper mensual:
+    toda la experiencia de gráfica + año en foco + mes + detalle corre dentro
+    de un fragmento independiente para evitar recargar el dashboard completo.
+    """
+    if df.empty:
+        st.info("No hay datos para graficar.")
+        return
+
+    monthly = df.groupby(["Año", "Mes_Num"], as_index=False).agg(
+        Ventas_MXN=("Ventas_MXN", "sum"),
+        Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN", "sum")
+    )
+    monthly["Año"] = monthly["Año"].astype(int)
+    monthly["Mes_Num"] = monthly["Mes_Num"].astype(int)
+    monthly["Mes"] = monthly["Mes_Num"].map(MONTHS_ES)
+
+    render_month_chart_fragment(
+        df=df,
+        monthly=monthly,
+        title=title,
+        ycol=ycol,
+        key=key or "monthly_chart",
+        detail_label=detail_label,
+        interactive=interactive,
+    )
+
+
+def render_month_drilldown(df, year, month, label="Detalle mensual"):
+    if year is None:
+        year = globals().get("selected_year")
+    if year is None or month is None:
+        return
+    detail = df[(df["Año"] == int(year)) & (df["Mes_Num"] == int(month))].copy()
+    if detail.empty:
+        return
+
+    ventas = float(detail["Ventas_MXN"].sum())
+    utilidad = float(detail["Utilidad_Bruta_MXN"].sum())
+    margen = (utilidad / ventas * 100) if ventas else 0
+    clientes = int(detail["Cliente"].nunique()) if "Cliente" in detail.columns else 0
+    operaciones = int(len(detail))
+    top_client = "Sin dato"
+    top_client_amount = 0.0
+    if "Cliente" in detail.columns:
+        top = detail.groupby("Cliente", as_index=False)["Ventas_MXN"].sum().sort_values("Ventas_MXN", ascending=False)
+        if not top.empty:
+            top_client = str(top.iloc[0]["Cliente"])
+            top_client_amount = float(top.iloc[0]["Ventas_MXN"])
+
+    month_label = MONTHS_ES.get(int(month), str(month))
+    html = f"""
+    <div class="drill-wrap">
+        <div class="drill-head">
+            <div>
+                <div class="drill-title">🔎 {label} · {month_label} {int(year)}</div>
+                <div class="drill-sub">Periodo seleccionado en el Explorador Mensual. El panel se actualiza automáticamente.</div>
+            </div>
+            <div class="drill-badge">EXPLORADOR MENSUAL</div>
+        </div>
+        <div class="drill-grid">
+            <div class="drill-tile"><div class="drill-label">Ventas</div><div class="drill-value">{fmt_money(ventas)}</div><div class="drill-note">Ingreso del mes</div></div>
+            <div class="drill-tile"><div class="drill-label">Utilidad bruta</div><div class="drill-value">{fmt_money(utilidad)}</div><div class="drill-note">Margen {fmt_pct(margen)}</div></div>
+            <div class="drill-tile"><div class="drill-label">Clientes</div><div class="drill-value">{clientes:,}</div><div class="drill-note">Clientes únicos</div></div>
+            <div class="drill-tile"><div class="drill-label">Operaciones</div><div class="drill-value">{operaciones:,}</div><div class="drill-note">Registros del periodo</div></div>
+            <div class="drill-tile"><div class="drill-label">Cliente principal</div><div class="drill-value">{top_client}</div><div class="drill-note">{fmt_money(top_client_amount)}</div></div>
+        </div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_executive_pulse(combined_df, selected_year, months_ytd, fc):
+    """Pulso ejecutivo de 10 segundos: crecimiento, mejor mes, margen y ritmo requerido."""
+    current = combined_df[(combined_df["Año"] == selected_year) & (combined_df["Mes_Num"].isin(months_ytd))].copy()
+    prev_year = selected_year - 1
+    previous = combined_df[(combined_df["Año"] == prev_year) & (combined_df["Mes_Num"].isin(months_ytd))].copy()
+    curr_sales = float(current["Ventas_MXN"].sum()) if not current.empty else 0
+    prev_sales = float(previous["Ventas_MXN"].sum()) if not previous.empty else 0
+    yoy_pct = yoy(curr_sales, prev_sales)
+
+    month_sales = current.groupby("Mes_Num", as_index=False)["Ventas_MXN"].sum() if not current.empty else pd.DataFrame()
+    if not month_sales.empty:
+        best = month_sales.sort_values("Ventas_MXN", ascending=False).iloc[0]
+        best_month = MONTHS_ES.get(int(best["Mes_Num"]), "-")
+        best_amount = float(best["Ventas_MXN"])
+    else:
+        best_month, best_amount = "-", 0
+
+    margin = float(fc.get("margen_neto_ytd", 0))
+    needed = float(fc.get("venta_req", 0))
+    gap = float(fc.get("gap", 0))
+
+    yoy_style = "green" if yoy_pct is not None and yoy_pct >= 0 else "red"
+    margin_style = "green" if margin >= 0 else "red"
+    needed_style = "green" if gap >= 0 else "yellow"
+    yoy_text = fmt_pct(yoy_pct) if yoy_pct is not None else "Sin base"
+
+    html = f"""
+    <div class="exec-pulse-grid">
+        <div class="exec-pulse {yoy_style}"><div class="exec-pulse-label">Variación YTD vs {prev_year}</div><div class="exec-pulse-value">{yoy_text}</div><div class="exec-pulse-sub">Mismos meses comparables</div></div>
+        <div class="exec-pulse"><div class="exec-pulse-label">Mejor mes del periodo</div><div class="exec-pulse-value">{best_month} · {fmt_money(best_amount)}</div><div class="exec-pulse-sub">Mayor ingreso mensual acumulado</div></div>
+        <div class="exec-pulse {margin_style}"><div class="exec-pulse-label">Margen neto YTD</div><div class="exec-pulse-value">{fmt_pct(margin)}</div><div class="exec-pulse-sub">Después de gastos administrativos cargados</div></div>
+        <div class="exec-pulse {needed_style}"><div class="exec-pulse-label">Ritmo mensual requerido</div><div class="exec-pulse-value">{fmt_money(needed)}</div><div class="exec-pulse-sub">Para alcanzar la meta anual</div></div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def monthly_summary_table(df, title="Resumen mensual de ventas (MXN)", ycol="Ventas_MXN"):
+    if df.empty:
+        return
+    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+    st.markdown('<div class="table-caption-premium">Valores mensuales por año · importes en MXN · incluye columna total para conciliación rápida.</div>', unsafe_allow_html=True)
+    monthly = (
+        df.groupby(["Año", "Mes_Num"], as_index=False)[ycol]
+        .sum()
+        .pivot(index="Año", columns="Mes_Num", values=ycol)
+        .fillna(0)
+    )
+    for m in range(1, 13):
+        if m not in monthly.columns:
+            monthly[m] = 0
+    monthly = monthly[[1,2,3,4,5,6,7,8,9,10,11,12]]
+    monthly["Total"] = monthly.sum(axis=1)
+    monthly = monthly.rename(columns=MONTHS_ES)
+    monthly = monthly.reindex([y for y in VALID_YEARS if y in monthly.index])
+
+    headers = ["Año"] + MONTH_ORDER + ["Total"]
+    rows = []
+    for year, row in monthly.iterrows():
+        tr_class = ' class="highlight-row"' if int(year) == selected_year else ''
+        tds = [f"<td>{int(year)}</td>"]
+        for col in MONTH_ORDER:
+            val = row.get(col, 0)
+            tds.append(f"<td>{fmt_money(val) if pd.notna(val) and abs(float(val)) > 0.0001 else '-'}</td>")
+        tds.append(f"<td class='total-col'>{fmt_money(row.get('Total', 0))}</td>")
+        rows.append(f"<tr{tr_class}>" + "".join(tds) + "</tr>")
+    html = """
+    <div class="premium-table-wrap">
+        <table class="premium-table">
+            <thead><tr>{headers}</tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+    </div>
+    """.format(
+        headers="".join(f"<th>{h}</th>" for h in headers),
+        rows="".join(rows)
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def premium_engineer_table(prom_df):
+    """Tabla premium HTML estable para Ranking Comercial INTEREY."""
+    if prom_df.empty:
+        st.info("No hay datos comparables de ingenieros para el filtro actual.")
+        return
+
+    table = prom_df.copy().sort_values("Ventas_MXN", ascending=False).reset_index(drop=True)
+    headers = ["Ingeniero", "Ventas", "Utilidad bruta", "Margen", "Meta acumulada", "Avance", "Estado", "Alerta"]
+    rows_html = []
+
+    for idx, row in table.iterrows():
+        avance = row.get("Cumplimiento_YTD_Pct", 0)
+        if pd.notna(avance) and avance >= 100:
+            estado = '<span class="status-good">🟢 En meta</span>'
+        elif pd.notna(avance) and avance >= 80:
+            estado = '<span class="status-warn">🟡 En seguimiento</span>'
+        else:
+            estado = '<span class="status-bad">🔴 Bajo meta</span>'
+
+        alerta = str(row.get("Alerta", ""))
+        if alerta == "Sin alerta":
+            alerta_html = '<span class="status-good">Sin alerta</span>'
+        elif "Margen" in alerta:
+            alerta_html = f'<span class="status-warn">{alerta}</span>'
+        else:
+            alerta_html = f'<span class="status-bad">{alerta}</span>'
+
+        ingeniero = str(row.get("Promotor", ""))
+        if idx == 0:
+            ingeniero = "🏆 " + ingeniero
+            tr_class = ' class="highlight-row"'
+        elif pd.notna(avance) and avance < 80:
+            tr_class = ' class="risk-row"'
+        elif pd.notna(avance) and avance < 100:
+            tr_class = ' class="warn-row"'
+        else:
+            tr_class = ""
+
+        cells = [
+            ingeniero,
+            fmt_money(row.get("Ventas_MXN", 0)),
+            fmt_money(row.get("Utilidad_Bruta_MXN", 0)),
+            fmt_pct(row.get("Margen_Bruto_Pct", 0)),
+            fmt_money(row.get("Meta_YTD", 0)),
+            fmt_pct(avance),
+            estado,
+            alerta_html,
+        ]
+        rows_html.append(f"<tr{tr_class}>" + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
+
+    html = """
+    <div class="premium-table-wrap">
+        <table class="premium-table engineer-table">
+            <thead><tr>{headers}</tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+    </div>
+    """.format(
+        headers="".join(f"<th>{h}</th>" for h in headers),
+        rows="".join(rows_html)
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+
+
+def premium_simple_table(df, title, caption="", columns=None, row_class_fn=None):
+    """Tabla HTML premium reusable para salidas ejecutivas.
+    columns = [(col_original, "Etiqueta", "tipo")] donde tipo: text, money, pct, number
+    """
+    if df is None or df.empty:
+        st.info("No hay datos para mostrar.")
+        return
+
+    st.markdown(f'<div class="section-title">{title}</div>', unsafe_allow_html=True)
+    if caption:
+        st.markdown(f'<div class="table-caption-premium">{caption}</div>', unsafe_allow_html=True)
+
+    if columns is None:
+        columns = [(c, c, "text") for c in df.columns]
+
+    def fmt_cell(value, kind):
+        if kind == "money":
+            return fmt_money(value)
+        if kind == "money_signed":
+            return fmt_money_signed(value)
+        if kind == "pct":
+            return fmt_pct(value)
+        if kind == "number":
+            try:
+                return f"{float(value):,.0f}"
+            except Exception:
+                return str(value)
+        return "" if pd.isna(value) else str(value)
+
+    rows_html = []
+    for idx, row in df.iterrows():
+        tr_class = ""
+        if row_class_fn is not None:
+            cls = row_class_fn(row, idx)
+            tr_class = f' class="{cls}"' if cls else ""
+        tds = []
+        for col, label, kind in columns:
+            val = row.get(col, "")
+            cell = fmt_cell(val, kind)
+            if kind in ["money_signed"] and isinstance(val, (int, float)) and val < 0:
+                cell = f'<span class="status-bad">{cell}</span>'
+            tds.append(f"<td>{cell}</td>")
+        rows_html.append(f"<tr{tr_class}>" + "".join(tds) + "</tr>")
+
+    html = """
+    <div class="premium-table-wrap">
+        <table class="premium-table">
+            <thead><tr>{headers}</tr></thead>
+            <tbody>{rows}</tbody>
+        </table>
+    </div>
+    """.format(
+        headers="".join(f"<th>{label}</th>" for _, label, _ in columns),
+        rows="".join(rows_html)
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+
+def render_executive_summary(consol_fc, proj_fc, store_fc, show_table=True):
+    """Vista 0 tipo CEO: lectura ejecutiva sin exceso de gráficas ni scroll."""
+    cumplimiento = consol_fc.get("cumplimiento", 0)
+    emoji, style, status = status_from_pct(cumplimiento)
+    gap = consol_fc.get("gap", 0)
+    gap_label, gap_style, _ = gap_label_and_style(gap)
+    ventas = consol_fc.get("ventas_ytd", 0)
+    proj_share = (proj_fc.get("ventas_ytd", 0) / ventas * 100) if ventas else 0
+    store_share = (store_fc.get("ventas_ytd", 0) / ventas * 100) if ventas else 0
+    monthly_needed = consol_fc.get("venta_req", 0)
+    progress_width = max(0, min(float(cumplimiento), 100))
+
+    if proj_fc.get("cumplimiento", 0) < store_fc.get("cumplimiento", 0):
+        risk_unit = "Proyectos"
+        risk_pct = proj_fc.get("cumplimiento", 0)
+    else:
+        risk_unit = "Tienda"
+        risk_pct = store_fc.get("cumplimiento", 0)
+
+    html = f"""
+    <div class="exec-summary-wrap">
+        <div class="exec-summary-title">🏠 Estado General INTEREY</div>
+        <div class="exec-summary-sub">Vista CEO: resultado actual, avance proyectado, utilidad estimada, faltante y oportunidad mensual.</div>
+        <div class="exec-progress-card">
+            <div class="exec-progress-head">
+                <div>
+                    <div class="exec-progress-label">Cumplimiento proyectado contra meta anual</div>
+                    <div class="exec-progress-value">{fmt_pct(cumplimiento)}</div>
+                </div>
+                <div class="exec-progress-status">{emoji} {status}<br><span style="font-weight:700;opacity:.82;">{fmt_money(consol_fc.get('forecast_ventas',0))} proyectados</span></div>
+            </div>
+            <div class="exec-progress-track"><div class="exec-progress-fill" style="width:{progress_width}%;"></div></div>
+            <div class="exec-progress-foot">Meta anual consolidada: <b>{fmt_money(consol_fc.get('meta_anual',0))}</b> · {gap_label}: <b>{fmt_money_signed(gap)}</b></div>
+        </div>
+        <div class="exec-insights-grid">
+            <div class="exec-insight">
+                <div class="exec-insight-label">Composición</div>
+                <div class="exec-insight-value">Proyectos {proj_share:,.1f}% · Tienda {store_share:,.1f}%</div>
+                <div class="exec-insight-text">Participación de ingresos acumulados en el periodo seleccionado.</div>
+            </div>
+            <div class="exec-insight {gap_style}">
+                <div class="exec-insight-label">Foco comercial</div>
+                <div class="exec-insight-value">{fmt_money_signed(gap)}</div>
+                <div class="exec-insight-text">Diferencia estimada entre la proyección de cierre y la meta anual.</div>
+            </div>
+            <div class="exec-insight {'red' if consol_fc.get('utilidad_neta_proy',0) < 0 else 'green'}">
+                <div class="exec-insight-label">Utilidad estimada</div>
+                <div class="exec-insight-value">{fmt_money(consol_fc.get('utilidad_neta_proy',0))}</div>
+                <div class="exec-insight-text">Basado en tendencia actual de utilidad bruta y gastos cargados.</div>
+            </div>
+            <div class="exec-insight yellow">
+                <div class="exec-insight-label">Oportunidad mensual</div>
+                <div class="exec-insight-value">{fmt_money(monthly_needed)}</div>
+                <div class="exec-insight-text">Venta promedio mensual requerida para alcanzar la meta anual.</div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+    if show_table:
+        mini = pd.DataFrame([
+            {"Unidad":"🔵 Proyectos", "Ventas":proj_fc["ventas_ytd"], "Participación %":proj_share, "Cumplimiento %":proj_fc.get("cumplimiento",0), "Faltante/Excedente":proj_fc.get("gap",0)},
+            {"Unidad":"🟢 Tienda", "Ventas":store_fc["ventas_ytd"], "Participación %":store_share, "Cumplimiento %":store_fc.get("cumplimiento",0), "Faltante/Excedente":store_fc.get("gap",0)},
+        ])
+        premium_simple_table(
+            mini,
+            "Mini comparativo ejecutivo",
+            "Vista compacta para dirección: aportación de cada unidad y avance proyectado contra su meta.",
+            columns=[
+                ("Unidad", "Unidad", "text"),
+                ("Ventas", "Ventas YTD", "money"),
+                ("Participación %", "Participación", "pct"),
+                ("Cumplimiento %", "Avance proyectado", "pct"),
+                ("Faltante/Excedente", "Faltante / excedente", "money_signed"),
+            ],
+            row_class_fn=lambda row, idx: "highlight-row" if "Proyectos" in str(row.get("Unidad","")) else ""
+        )
+
+
+def render_dynamic_executive_view(view_name, fc, monthly_target_note=""):
+    """Tarjetas dinámicas para evitar duplicar KPIs por unidad."""
+    _, forecast_style, _ = status_from_pct(fc["cumplimiento"])
+    gap_label, gap_style, gap_sub = gap_label_and_style(fc["gap"])
+    net_style = "red" if fc["utilidad_neta_ytd"] < 0 else "green"
+    net_proj_style = "red" if fc["utilidad_neta_proy"] < 0 else "green"
+
+    if view_name == "Consolidado":
+        ventas_label = "💰 Ventas consolidadas"
+        utilidad_label = "📊 Utilidad bruta consolidada"
+        gastos_label = "🧾 Gastos consolidados"
+        neta_label = "🏁 Utilidad neta consolidada"
+        forecast_label = "🎯 Proyección de cierre"
+        meta_label = "Meta anual consolidada"
+        ventas_sub = "Proyectos + Tienda"
+        utilidad_sub = f"Margen bruto: {fmt_pct(fc.get('margen_bruto_ytd',0))}"
+        gastos_sub = "Gastos desde archivo administrativo"
+        meta_sub = "Proyectos + Tienda"
+    elif view_name == "Proyectos":
+        ventas_label = "💰 Ventas proyectos"
+        utilidad_label = "📊 Utilidad bruta proyectos"
+        gastos_label = "🧾 Gasto proyectos"
+        neta_label = "🏁 Utilidad neta proyectos"
+        forecast_label = "🎯 Proyección de cierre proyectos"
+        meta_label = "Meta anual proyectos"
+        ventas_sub = "Cotizado cliente × TC"
+        utilidad_sub = f"Margen bruto: {fmt_pct((fc.get('utilidad_bruta_ytd',0) / fc.get('ventas_ytd',1) * 100) if fc.get('ventas_ytd',0) else 0)}"
+        gastos_sub = "Gasto desde archivo administrativo"
+        meta_sub = monthly_target_note
+    else:
+        ventas_label = "💰 Ventas tienda"
+        utilidad_label = "📊 Utilidad tienda"
+        gastos_label = "🧾 Gasto tienda"
+        neta_label = "🏁 Utilidad neta tienda"
+        forecast_label = "🎯 Proyección de cierre tienda"
+        meta_label = "Meta anual tienda"
+        ventas_sub = "Total · cancelados excluidos"
+        utilidad_sub = f"Margen bruto: {fmt_pct((fc.get('utilidad_bruta_ytd',0) / fc.get('ventas_ytd',1) * 100) if fc.get('ventas_ytd',0) else 0)}"
+        gastos_sub = "Gasto desde archivo administrativo"
+        meta_sub = monthly_target_note
+
+    c1,c2,c3,c4,c5 = st.columns(5)
+    with c1: st.markdown(card(ventas_label, fmt_money(fc["ventas_ytd"]), ventas_sub), unsafe_allow_html=True)
+    with c2: st.markdown(card(utilidad_label, fmt_money(fc["utilidad_bruta_ytd"]), utilidad_sub), unsafe_allow_html=True)
+    with c3: st.markdown(card(gastos_label, fmt_money(fc["gasto_ytd"]), gastos_sub, "gray"), unsafe_allow_html=True)
+    with c4: st.markdown(card(neta_label, fmt_money(fc["utilidad_neta_ytd"]), f"Margen neto: {fmt_pct(fc['margen_neto_ytd'])}", net_style), unsafe_allow_html=True)
+    with c5: st.markdown(card(forecast_label, fmt_money(fc["forecast_ventas"]), compliance_text(fc["cumplimiento"]), forecast_style), unsafe_allow_html=True)
+
+    st.markdown('<div class="kpi-spacer"></div>', unsafe_allow_html=True)
+    d1,d2,d3,d4,d5 = st.columns(5)
+    with d1: st.markdown(card(meta_label, fmt_money(fc["meta_anual"]), meta_sub, "gray"), unsafe_allow_html=True)
+    with d2: st.markdown(card(gap_label, fmt_money_signed(fc["gap"]), gap_sub, gap_style), unsafe_allow_html=True)
+    venta_req_style = "red" if fc["gap"] < 0 else "green"
+    with d3: st.markdown(card("Venta requerida mensual", fmt_money(fc.get("venta_req", 0)), f"{int(fc.get('meses_restantes', 0))} meses restantes", venta_req_style), unsafe_allow_html=True)
+    with d4: st.markdown(card("Utilidad bruta estimada", fmt_money(fc["forecast_utilidad_bruta"]), "Antes de gastos", "gray"), unsafe_allow_html=True)
+    with d5: st.markdown(card("Utilidad estimada al cierre", fmt_money(fc["utilidad_neta_proy"]), f"Basado en tendencia · Margen: {fmt_pct(fc['margen_neto_proy'])}", net_proj_style), unsafe_allow_html=True)
+
+
+
+def render_backlog_view(backlog_df, annual_project_target):
+    st.markdown('<div class="section-title">📋 Backlog Ejecutivo</div>', unsafe_allow_html=True)
+    trend_note("Proyectos con orden de compra aprobada, actualmente en ejecución y pendientes de facturación. El archivo mensual sustituye por completo al snapshot anterior.")
+
+    if backlog_df is None or backlog_df.empty:
+        st.info("No hay información de backlog. Carga el CSV en la barra lateral o agrega el archivo base en GitHub.")
+        return
+
+    total = float(backlog_df["Importe_Pendiente_MXN"].sum())
+    abiertos = int(len(backlog_df))
+    promedio = float(backlog_df["Dias_Abiertos"].mean()) if abiertos else 0
+    oldest_idx = backlog_df["Dias_Abiertos"].idxmax()
+    oldest = backlog_df.loc[oldest_idx]
+    oldest_days = int(oldest["Dias_Abiertos"])
+    oldest_client = str(oldest.get("Cliente", "Sin cliente"))
+    oldest_amount = float(oldest.get("Importe_Pendiente_MXN", 0))
+
+    critical = backlog_df[backlog_df["Dias_Abiertos"] > 90].copy()
+    critical_count = int(len(critical))
+    critical_amount = float(critical["Importe_Pendiente_MXN"].sum()) if critical_count else 0
+    risk_pct = (critical_amount / total * 100) if total else 0
+    coverage_pct = (total / annual_project_target * 100) if annual_project_target else 0
+
+    client_summary = (
+        backlog_df.groupby("Cliente", as_index=False)
+        .agg(Importe=("Importe_Pendiente_MXN", "sum"), Proyectos=("Cliente", "size"))
+        .sort_values("Importe", ascending=False)
+    )
+    top_client = str(client_summary.iloc[0]["Cliente"]) if not client_summary.empty else "Sin cliente"
+    top_client_amount = float(client_summary.iloc[0]["Importe"]) if not client_summary.empty else 0
+    top_client_share = (top_client_amount / total * 100) if total else 0
+    healthy_count = int((backlog_df["Dias_Abiertos"] <= 30).sum())
+
+    radar_html = f"""
+    <div class="radar-card">
+        <div class="radar-head">
+            <div>
+                <div class="radar-title">📡 Radar del Backlog</div>
+                <div class="radar-subtitle">Lectura ejecutiva del ingreso pendiente, antigüedad, concentración y exposición financiera.</div>
+            </div>
+            <div class="radar-badge">{('🔴' if risk_pct >= 35 else '🟡' if risk_pct >= 20 else '🟢')} Riesgo financiero: {risk_pct:,.1f}%</div>
+        </div>
+        <div class="radar2-grid">
+            <div class="radar2-main">
+                <div class="radar2-main-label">Lectura principal</div>
+                <div class="radar2-main-value">El backlog equivale al {coverage_pct:,.1f}% de la meta anual de Proyectos.</div>
+                <div class="radar2-main-sub">Ingreso comprometido pendiente de facturar: <b>{fmt_money(total)}</b>.</div>
+            </div>
+            <div class="radar2-tile green">
+                <div class="radar2-label">🟢 Fortaleza</div>
+                <div class="radar2-value">{healthy_count:,} proyectos dentro de 30 días</div>
+                <div class="radar2-text">Representan la parte más sana y reciente del backlog.</div>
+            </div>
+            <div class="radar2-tile yellow">
+                <div class="radar2-label">🟡 Atención</div>
+                <div class="radar2-value">Antigüedad promedio: {promedio:,.0f} días</div>
+                <div class="radar2-text">Seguimiento recomendado para evitar que más proyectos migren a zona crítica.</div>
+            </div>
+            <div class="radar2-tile red">
+                <div class="radar2-label">🔴 Riesgo</div>
+                <div class="radar2-value">{critical_count:,} proyectos superan 90 días</div>
+                <div class="radar2-text">Exposición acumulada: {fmt_money(critical_amount)}.</div>
+            </div>
+            <div class="radar2-tile {'red' if top_client_share >= 35 else 'yellow' if top_client_share >= 20 else 'green'}">
+                <div class="radar2-label">🔵 Concentración</div>
+                <div class="radar2-value">{top_client} concentra {top_client_share:,.1f}%</div>
+                <div class="radar2-text">Importe pendiente del cliente: {fmt_money(top_client_amount)}.</div>
+            </div>
+        </div>
+    </div>
+    """
+    st.markdown(radar_html, unsafe_allow_html=True)
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.markdown(card("💰 Backlog total", fmt_money(total), "OC aprobadas pendientes de facturar"), unsafe_allow_html=True)
+    with c2:
+        st.markdown(card("📋 Proyectos abiertos", f"{abiertos:,}", "Actualmente en ejecución", "green"), unsafe_allow_html=True)
+    with c3:
+        avg_style = "red" if promedio > 90 else ("yellow" if promedio > 60 else "gray")
+        st.markdown(card("⏳ Antigüedad promedio", f"{promedio:,.0f} días", "Desde la recepción de la OC", avg_style), unsafe_allow_html=True)
+    with c4:
+        old_style = "red" if oldest_days > 90 else ("orange" if oldest_days > 60 else "yellow")
+        st.markdown(card("🔴 Proyecto más antiguo", f"{oldest_days:,} días", f"{oldest_client} · {fmt_money(oldest_amount)}", old_style), unsafe_allow_html=True)
+
+    if critical_count:
+        st.markdown(f"""
+        <div class="backlog-alert">
+            <div class="backlog-alert-title">🚨 Riesgo financiero detectado</div>
+            <div class="backlog-alert-value">{critical_count:,} proyectos superan los 90 días y concentran {fmt_money(critical_amount)}.</div>
+            <div class="backlog-alert-sub">Esto representa el <b>{risk_pct:,.1f}%</b> del backlog total pendiente de facturación.</div>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.success("✅ Backlog sano: no existen proyectos con más de 90 días de antigüedad.")
+
+    order = ["🟢 0–30 días", "🟡 31–60 días", "🟠 61–90 días", "🔴 Más de 90 días"]
+    aging = backlog_df.groupby("Antigüedad", as_index=False).agg(
+        Proyectos=("Antigüedad", "size"),
+        Importe=("Importe_Pendiente_MXN", "sum")
+    )
+    aging["Antigüedad"] = pd.Categorical(aging["Antigüedad"], categories=order, ordered=True)
+    aging = aging.sort_values("Antigüedad")
+
+    a1, a2, a3, a4 = st.columns(4)
+    age_cards = [("🟢 0–30 días", "green"), ("🟡 31–60 días", "yellow"), ("🟠 61–90 días", "orange"), ("🔴 Más de 90 días", "red")]
+    for col, (bucket, style) in zip([a1, a2, a3, a4], age_cards):
+        row = aging[aging["Antigüedad"] == bucket]
+        count = int(row["Proyectos"].iloc[0]) if not row.empty else 0
+        amount = float(row["Importe"].iloc[0]) if not row.empty else 0
+        with col:
+            st.markdown(card(bucket, f"{count:,} proyectos", fmt_money(amount), style), unsafe_allow_html=True)
+
+    st.markdown('<div class="section-title">Composición del backlog</div>', unsafe_allow_html=True)
+    g1, g2 = st.columns(2)
+    with g1:
+        fig_age = px.bar(aging, x="Antigüedad", y="Importe", text="Proyectos", title="Importe comprometido por antigüedad", category_orders={"Antigüedad": order})
+        fig_age.update_traces(texttemplate="%{text} proyectos", textposition="outside")
+        style_exec_chart(fig_age, height=410, money_axis=True, legend=False)
+        st.plotly_chart(fig_age, use_container_width=True, config=PLOT_CONFIG)
+    with g2:
+        top_clients = client_summary.head(10).sort_values("Importe", ascending=True)
+        fig_clients = px.bar(
+            top_clients,
+            x="Importe",
+            y="Cliente",
+            orientation="h",
+            text="Proyectos",
+            title="Top 10 clientes por ingreso pendiente",
+            hover_data={"Importe": ":,.0f", "Proyectos": True},
+        )
+        fig_clients.update_traces(texttemplate="%{text} proyectos", textposition="outside")
+        style_exec_chart(fig_clients, height=410, money_axis=False, legend=False)
+        fig_clients.update_xaxes(tickprefix="$", tickformat=",.0f")
+        st.plotly_chart(fig_clients, use_container_width=True, config=PLOT_CONFIG)
+
+    table = backlog_df.copy().sort_values(["Dias_Abiertos", "Importe_Pendiente_MXN"], ascending=[False, False])
+    table["Fecha_OC_Texto"] = table["Fecha_OC"].dt.strftime("%d/%m/%Y")
+    premium_simple_table(
+        table,
+        "Detalle ejecutivo de proyectos con OC",
+        "Ordenado del proyecto más antiguo al más reciente. El importe se expresa en MXN y las operaciones en USD utilizan el TC del archivo.",
+        columns=[
+            ("Antigüedad", "Semáforo", "text"),
+            ("Cliente", "Cliente", "text"),
+            ("Proyecto", "Proyecto", "text"),
+            ("Responsable", "Responsable", "text"),
+            ("Fecha_OC_Texto", "Fecha OC", "text"),
+            ("Dias_Abiertos", "Días abiertos", "number"),
+            ("Importe_Pendiente_MXN", "Importe pendiente", "money"),
+        ],
+        row_class_fn=lambda row, idx: "critical-row" if float(row.get("Dias_Abiertos", 0)) > 90 else ("attention-row" if float(row.get("Dias_Abiertos", 0)) > 60 else ("warn-row" if float(row.get("Dias_Abiertos", 0)) > 30 else "highlight-row"))
+    )
+
+
+@st.fragment
+def render_engineer_detail_fragment(performance_year, prom_month, project_monthly_target, months_ytd):
+    """Detalle de ingeniero con rerun aislado: cambiar promotor no reconstruye la vista Proyectos."""
+    st.markdown('<div class="section-title">Detalle ejecutivo por ingeniero / promotor</div>', unsafe_allow_html=True)
+    focus = st.selectbox("Selecciona ingeniero / promotor", sorted(performance_year["Promotor"].dropna().unique().tolist()), key="promotor_detalle_v40")
+    focus_year = performance_year[performance_year["Promotor"] == focus].copy()
+    f_ventas = focus_year["Ventas_MXN"].sum()
+    f_util = focus_year["Utilidad_Bruta_MXN"].sum()
+    f_margen = f_util / f_ventas * 100 if f_ventas else 0
+    f_meta_ytd = project_monthly_target * len(months_ytd)
+    f_cump = f_ventas / f_meta_ytd * 100 if f_meta_ytd else 0
+    _, f_cump_style, f_cump_status = status_from_pct(f_cump, green=100, yellow=80)
+    cdet = st.columns(5)
+    with cdet[0]: st.markdown(card(f"Ventas · {focus}", fmt_money(f_ventas), "acumulado meses seleccionados"), unsafe_allow_html=True)
+    with cdet[1]: st.markdown(card("Utilidad bruta", fmt_money(f_util), f"Margen: {fmt_pct(f_margen)}", "green" if f_util >= 0 else "red"), unsafe_allow_html=True)
+    with cdet[2]: st.markdown(card("Meta YTD", fmt_money(f_meta_ytd), f"{fmt_money(project_monthly_target)} × {len(months_ytd)} meses", "gray"), unsafe_allow_html=True)
+    with cdet[3]: st.markdown(card("Cumplimiento YTD", fmt_pct(f_cump), f"{f_cump_status}", f_cump_style), unsafe_allow_html=True)
+    with cdet[4]: st.markdown(card("Diferencia vs meta", fmt_money_signed(f_ventas - f_meta_ytd), "positivo = arriba de meta", "green" if f_ventas >= f_meta_ytd else "red"), unsafe_allow_html=True)
+
+    detail = prom_month[prom_month["Promotor"] == focus].copy().sort_values("Mes_Num")
+    detail["Meta_Mensual"] = project_monthly_target
+    detail["Diferencia_Meta_MXN"] = detail["Ventas_MXN"] - detail["Meta_Mensual"]
+    detail["Estado"] = detail["Cumplimiento_Pct"].apply(lambda x: "Cumplió" if pd.notna(x) and x >= 100 else ("Cerca" if pd.notna(x) and x >= 80 else "No cumplió"))
+    cdet_g1, cdet_g2 = st.columns(2)
+    with cdet_g1:
+        fig_focus = px.line(detail, x="Mes_Num", y="Ventas_MXN", markers=True, title=f"Ventas mensuales · {focus}")
+        fig_focus.update_layout(xaxis=dict(tickmode='array', tickvals=list(range(1,13)), ticktext=MONTH_ORDER))
+        fig_focus.add_hline(y=project_monthly_target, line_dash="dash", line_color="#475569")
+        style_exec_chart(fig_focus, height=410, money_axis=True, legend=False)
+        st.plotly_chart(fig_focus, use_container_width=True, config=PLOT_CONFIG)
+    with cdet_g2:
+        fig_focus2 = px.bar(detail, x="Mes", y="Cumplimiento_Pct", title=f"Cumplimiento mensual · {focus}")
+        fig_focus2.add_hline(y=100, line_dash="dash", line_color="#475569")
+        style_exec_chart(fig_focus2, height=410, money_axis=False, legend=False)
+        fig_focus2.update_yaxes(ticksuffix="%")
+        st.plotly_chart(fig_focus2, use_container_width=True, config=PLOT_CONFIG)
+    show_detail = detail[["Mes","Ventas_MXN","Utilidad_Bruta_MXN","Meta_Mensual","Diferencia_Meta_MXN","Cumplimiento_Pct","Estado"]].copy()
+    premium_simple_table(
+        show_detail,
+        "Detalle Mensual del Ingeniero Seleccionado",
+        "Comparativo mensual contra meta: ventas, utilidad bruta, avance y diferencia.",
+        columns=[
+            ("Mes", "Mes", "text"),
+            ("Ventas_MXN", "Ventas", "money"),
+            ("Utilidad_Bruta_MXN", "Utilidad bruta", "money"),
+            ("Meta_Mensual", "Meta mensual", "money"),
+            ("Diferencia_Meta_MXN", "Diferencia vs meta", "money_signed"),
+            ("Cumplimiento_Pct", "Avance", "pct"),
+            ("Estado", "Estado", "text"),
+        ],
+        row_class_fn=lambda row, idx: "highlight-row" if str(row.get("Estado","")) == "Cumplió" else ("warn-row" if str(row.get("Estado","")) == "Cerca" else "risk-row")
+    )
+
+
+# ---------- SIDEBAR ----------
+st.sidebar.markdown("## Fuente de información")
+manual_mode = st.sidebar.checkbox(
+    "🧪 Modo de pruebas / cargar archivos manualmente",
+    value=False,
+    help="Desactivado: usa automáticamente los archivos guardados en GitHub."
+)
+
+proj_upload = store_upload = expense_upload = backlog_upload = None
+if manual_mode:
+    st.sidebar.markdown("### Reemplazo temporal")
+    proj_upload = st.sidebar.file_uploader("Reporte Proyectos", type=["csv"], key="proj_upload")
+    store_upload = st.sidebar.file_uploader("Reporte Tienda", type=["csv"], key="store_upload")
+    expense_upload = st.sidebar.file_uploader("Archivo de gastos", type=["xlsx"], key="expense_upload")
+    backlog_upload = st.sidebar.file_uploader("Proyectos en ejecución (con OC)", type=["csv"], key="backlog_upload")
+else:
+    st.sidebar.success("🟢 Modo automático · archivos del repositorio GitHub")
+
+projects = load_projects(proj_upload)
+store = load_store(store_upload)
+expenses = load_expenses(expense_upload)
+backlog = load_backlog(backlog_upload)
+
+if projects.empty and store.empty:
+    st.error("No encontré datos. Verifica los archivos maestros en la misma carpeta que interey_v44.py.")
+    st.stop()
+
+years_available = sorted(set(
+    projects.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist()
+    + store.get("Año", pd.Series(dtype=int)).dropna().astype(int).unique().tolist()
+))
+years_available = [y for y in years_available if y in VALID_YEARS]
+selected_year = st.sidebar.selectbox("Año principal", years_available, index=len(years_available)-1)
+compare_years = st.sidebar.multiselect("Años a comparar", years_available, default=years_available)
+
+months_available = ytd_months_for_selected_year(selected_year, projects, store)
+period_advanced = st.sidebar.checkbox(
+    "🔎 Análisis avanzado de periodo",
+    value=False,
+    help="Actívalo solo si quieres analizar meses específicos."
+)
+if period_advanced:
+    selected_months = st.sidebar.multiselect(
+        "Meses del año principal",
+        list(range(1, 13)),
+        default=months_available,
+        format_func=lambda m: MONTHS_ES[m],
+        key=f"meses_avanzado_{selected_year}"
+    )
+    if not selected_months:
+        selected_months = months_available
+else:
+    selected_months = months_available
+    st.sidebar.caption("Periodo automático: " + " · ".join(MONTHS_ES[m] for m in selected_months))
+
+st.sidebar.markdown("## Metas")
+engineers = st.sidebar.number_input("Ingenieros proyectos considerados", min_value=1, value=ACTIVE_PROJECT_ENGINEERS_FOR_TARGET, step=1)
+project_monthly_target = st.sidebar.number_input(
+    f"Meta mensual proyectos {selected_year}", min_value=0.0,
+    value=float(PROJECT_TARGETS.get(selected_year, 0)), step=50000.0, format="%.0f"
+)
+store_monthly_target = st.sidebar.number_input(
+    f"Meta mensual tienda {selected_year}", min_value=0.0,
+    value=float(STORE_TARGETS.get(selected_year, 0)), step=25000.0, format="%.0f"
+)
+
+months_ytd = selected_months
+project_expenses = expenses_dict(expenses, selected_year, months_ytd, "Proyectos")
+store_expenses = expenses_dict(expenses, selected_year, months_ytd, "Tienda")
+missing_proj_exp = expense_missing_months(expenses, selected_year, months_ytd, "Proyectos")
+missing_store_exp = expense_missing_months(expenses, selected_year, months_ytd, "Tienda")
+
+st.sidebar.markdown("## Gastos automáticos")
+if expenses.empty:
+    st.sidebar.warning("No se cargó archivo de gastos. Los gastos se calcularán en $0.")
+else:
+    st.sidebar.caption(f"Gasto proyectos YTD: {fmt_money(sum(project_expenses.values()))}")
+    st.sidebar.caption(f"Gasto tienda YTD: {fmt_money(sum(store_expenses.values()))}")
+    if missing_proj_exp:
+        st.sidebar.warning("Proyectos pendiente: " + ", ".join(MONTHS_ES[m] for m in missing_proj_exp))
+    if missing_store_exp:
+        st.sidebar.warning("Tienda pendiente: " + ", ".join(MONTHS_ES[m] for m in missing_store_exp))
+
+# Filtros base comparativo
+projects_base = projects[projects["Año"].isin(compare_years)].copy()
+store_base = store[store["Año"].isin(compare_years)].copy()
+projects_year = projects_base[(projects_base["Año"] == selected_year) & (projects_base["Mes_Num"].isin(selected_months))].copy()
+store_year = store_base[(store_base["Año"] == selected_year) & (store_base["Mes_Num"].isin(selected_months))].copy()
+combined_base = pd.concat([projects_base.assign(Unidad="Proyectos"), store_base.assign(Unidad="Tienda")], ignore_index=True, sort=False)
+combined_year = pd.concat([projects_year.assign(Unidad="Proyectos"), store_year.assign(Unidad="Tienda")], ignore_index=True, sort=False)
+
+proj_fc = forecast_block("Proyectos", projects_year, project_expenses, project_monthly_target, months_ytd, multiplier=engineers)
+store_fc = forecast_block("Tienda", store_year, store_expenses, store_monthly_target, months_ytd, multiplier=1)
+consol_fc = {
+    "ventas_ytd": proj_fc["ventas_ytd"] + store_fc["ventas_ytd"],
+    "utilidad_bruta_ytd": proj_fc["utilidad_bruta_ytd"] + store_fc["utilidad_bruta_ytd"],
+    "gasto_ytd": proj_fc["gasto_ytd"] + store_fc["gasto_ytd"],
+    "utilidad_neta_ytd": proj_fc["utilidad_neta_ytd"] + store_fc["utilidad_neta_ytd"],
+    "forecast_ventas": proj_fc["forecast_ventas"] + store_fc["forecast_ventas"],
+    "forecast_utilidad_bruta": proj_fc["forecast_utilidad_bruta"] + store_fc["forecast_utilidad_bruta"],
+    "gasto_anual_proy": proj_fc["gasto_anual_proy"] + store_fc["gasto_anual_proy"],
+    "utilidad_neta_proy": proj_fc["utilidad_neta_proy"] + store_fc["utilidad_neta_proy"],
+    "meta_anual": proj_fc["meta_anual"] + store_fc["meta_anual"],
+}
+consol_fc["margen_neto_ytd"] = consol_fc["utilidad_neta_ytd"] / consol_fc["ventas_ytd"] * 100 if consol_fc["ventas_ytd"] else 0
+consol_fc["margen_bruto_ytd"] = consol_fc["utilidad_bruta_ytd"] / consol_fc["ventas_ytd"] * 100 if consol_fc["ventas_ytd"] else 0
+consol_fc["margen_neto_proy"] = consol_fc["utilidad_neta_proy"] / consol_fc["forecast_ventas"] * 100 if consol_fc["forecast_ventas"] else 0
+consol_fc["cumplimiento"] = consol_fc["forecast_ventas"] / consol_fc["meta_anual"] * 100 if consol_fc["meta_anual"] else 0
+consol_fc["gap"] = consol_fc["forecast_ventas"] - consol_fc["meta_anual"]
+consol_fc["meses_restantes"] = max(12 - len(months_ytd), 0)
+consol_fc["venta_req"] = (consol_fc["meta_anual"] - consol_fc["ventas_ytd"]) / consol_fc["meses_restantes"] if consol_fc["meses_restantes"] else 0
+
+if selected_year == 2026 and (missing_proj_exp or missing_store_exp):
+    pending_parts = []
+    if missing_proj_exp:
+        pending_parts.append("Proyectos: " + ", ".join(MONTHS_ES[m] for m in missing_proj_exp))
+    if missing_store_exp:
+        pending_parts.append("Tienda: " + ", ".join(MONTHS_ES[m] for m in missing_store_exp))
+    st.warning(
+        "⚠️ Ventas disponibles hasta "
+        + MONTHS_ES[max(selected_months)]
+        + ", pero faltan gastos administrativos para: "
+        + " | ".join(pending_parts)
+        + ". La utilidad neta debe considerarse provisional hasta actualizar esos gastos."
+    )
+
+# ---------- HEADER ----------
+months_label = ", ".join(MONTHS_ES[m] for m in selected_months)
+here = Path(__file__).resolve().parent
+logo_path = None
+for logo_name in ["Logo Interey.png", "Logo_Interey.png", "logo_interey.png", "interey_logo.png"]:
+    candidate = here / logo_name
+    if candidate.exists():
+        logo_path = str(candidate)
+        break
+
+st.markdown('<div class="hero-wrap">', unsafe_allow_html=True)
+hc1, hc2, hc3 = st.columns([1.25, 5.2, 2.0])
+with hc1:
+    st.markdown('<div class="logo-box-premium">', unsafe_allow_html=True)
+    if logo_path:
+        st.image(logo_path, use_container_width=True)
+    else:
+        st.markdown('<div style="font-weight:900;color:#123E70;font-size:1.4rem;">INTEREY</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+with hc2:
+    st.markdown('<div class="hero-kicker">INTEREY 360°</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-title">Inteligencia Comercial y Financiera</div>', unsafe_allow_html=True)
+    st.markdown('<div class="hero-subtitle">Soluciones en Telecomunicaciones y Seguridad</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="hero-pill"><b>Año principal:</b> {selected_year} &nbsp;|&nbsp; <b>Meses analizados:</b> {months_label}</div>', unsafe_allow_html=True)
+with hc3:
+    data_max_date = latest_data_date(projects_year, store_year)
+    data_max_label = fmt_date_es(data_max_date)
+    st.markdown(
+        f'<div class="hero-date"><b>Datos actualizados al</b><br>'
+        f'<span style="font-size:1.25rem;font-weight:900;color:#0B1F4D;">{data_max_label}</span><br>'
+        f'<span>Periodo automático según archivos de ventas</span></div>',
+        unsafe_allow_html=True
+    )
+st.markdown('</div>', unsafe_allow_html=True)
+radar_interey(consol_fc, proj_fc, store_fc)
+render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
+
+# ---------- VISTA EJECUTIVA DINÁMICA · FRAGMENTO ----------
+@st.fragment
+def render_dashboard_body():
+    """
+    Navegación principal aislada. Cambiar Resumen/Consolidado/Proyectos/Tienda/Backlog
+    vuelve a ejecutar únicamente el cuerpo del dashboard; header, Radar y Pulso permanecen estables.
+    """
+    view_selected = st.radio(
+        "Selecciona vista",
+        ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda", "Ingresos Comprometidos"],
+        horizontal=True,
+        label_visibility="collapsed",
+        key="vista_ejecutiva"
+    )
+
+    display_mode = st.segmented_control(
+        "Nivel de detalle",
+        options=["Dirección", "Análisis"],
+        default="Dirección",
+        selection_mode="single",
+        required=True,
+        key="display_mode_v62",
+        label_visibility="collapsed",
+        width="content",
+        help="Dirección prioriza lectura rápida. Análisis conserva tablas y detalle operativo."
+    )
+
+    if view_selected == "Resumen Ejecutivo":
+        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
+    elif view_selected == "Consolidado":
+        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
+    elif view_selected == "Proyectos":
+        render_dynamic_executive_view("Proyectos", proj_fc, f"{engineers} ing. × {fmt_money(project_monthly_target)} × 12")
+    elif view_selected == "Tienda":
+        render_dynamic_executive_view("Tienda", store_fc, f"{fmt_money(store_monthly_target)} × 12")
+
+    # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
+    if view_selected == "Resumen Ejecutivo":
+        render_executive_summary(consol_fc, proj_fc, store_fc, show_table=(display_mode == "Análisis"))
+        trend_note("Resumen Ejecutivo no muestra tablas ni gráficas extensas. Para análisis detallado usa Consolidado, Proyectos o Tienda.")
+
+    elif view_selected == "Consolidado":
+        st.markdown('<div class="section-title">Resultado corporativo</div>', unsafe_allow_html=True)
+        gauge = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=consol_fc["cumplimiento"],
+            title={'text': "Cumplimiento proyectado vs meta consolidada"},
+            gauge={
+                'axis': {'range': [0, 150]},
+                'bar': {'color': '#0B1F4D'},
+                'steps': [
+                    {'range':[0,90],'color':'#FEE2E2'},
+                    {'range':[90,100],'color':'#FEF3C7'},
+                    {'range':[100,150],'color':'#DCFCE7'}
+                ]
+            }
+        ))
+        gauge.update_layout(height=330, margin=dict(l=25,r=25,t=55,b=20), paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#334155"))
+        st.plotly_chart(gauge, use_container_width=True, config=PLOT_CONFIG)
+        trend_note("Se eliminó el puente de utilidad en esta vista para mantener el consolidado más limpio. La utilidad neta ya se resume en las tarjetas superiores y en el comparativo ejecutivo.")
+
+        st.markdown('<div class="section-title">Evolución mensual consolidada</div>', unsafe_allow_html=True)
+        monthly_chart(
+            combined_base,
+            "Ventas mensuales consolidadas",
+            "Ventas_MXN",
+            key="monthly_consolidado_v56",
+            detail_label="Consolidado"
+        )
+        if display_mode == "Análisis":
+            monthly_summary_table(combined_base, "Resumen mensual de ventas consolidadas (MXN)", "Ventas_MXN")
+
+        st.markdown('<div class="section-title">Comparativo Proyectos vs Tienda</div>', unsafe_allow_html=True)
+        comp = pd.DataFrame([
+            {"Unidad":"Proyectos", "Ventas":proj_fc["ventas_ytd"], "Utilidad bruta":proj_fc["utilidad_bruta_ytd"], "Gastos":proj_fc["gasto_ytd"], "Utilidad neta":proj_fc["utilidad_neta_ytd"]},
+            {"Unidad":"Tienda", "Ventas":store_fc["ventas_ytd"], "Utilidad bruta":store_fc["utilidad_bruta_ytd"], "Gastos":store_fc["gasto_ytd"], "Utilidad neta":store_fc["utilidad_neta_ytd"]},
+        ])
+        comp["Margen bruto %"] = comp["Utilidad bruta"] / comp["Ventas"].replace(0,pd.NA) * 100
+        comp["Margen neto %"] = comp["Utilidad neta"] / comp["Ventas"].replace(0,pd.NA) * 100
+        comp["Participación ventas %"] = comp["Ventas"] / comp["Ventas"].sum() * 100 if comp["Ventas"].sum() else 0
+
+        c1,c2 = st.columns(2)
+        with c1:
+            fig = px.bar(comp, x="Unidad", y=["Ventas", "Utilidad bruta", "Utilidad neta"], barmode="group", title="Ventas, utilidad bruta y utilidad neta", color_discrete_sequence=["#123E70", "#118C7E", "#64748B"])
+            fig.update_traces(hovertemplate="%{fullData.name}<br>$%{y:,.0f}<extra></extra>")
+            style_exec_chart(fig, height=390, money_axis=True, legend=True)
+            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+        with c2:
+            fig = px.pie(comp, values="Ventas", names="Unidad", hole=.62, title="Participación en ventas", color="Unidad", color_discrete_map={"Proyectos":"#123E70", "Tienda":"#118C7E"})
+            fig.update_traces(textposition="inside", textinfo="percent+label", hovertemplate="%{label}<br>$%{value:,.0f}<br>%{percent}<extra></extra>")
+            style_exec_chart(fig, height=390, money_axis=False, legend=False)
+            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+        comp_show = comp.copy()
+        comp_show["Unidad"] = comp_show["Unidad"].map({"Proyectos": "🔵 Proyectos", "Tienda": "🟢 Tienda"}).fillna(comp_show["Unidad"])
+        premium_simple_table(
+            comp_show,
+            "Comparativo Ejecutivo de Unidades",
+            "Lectura rápida de ventas, utilidad, gastos, margen y participación por unidad de negocio.",
+            columns=[
+                ("Unidad", "Unidad", "text"),
+                ("Ventas", "Ventas", "money"),
+                ("Utilidad bruta", "Utilidad bruta", "money"),
+                ("Gastos", "Gastos", "money"),
+                ("Utilidad neta", "Utilidad neta", "money_signed"),
+                ("Margen bruto %", "Margen bruto", "pct"),
+                ("Margen neto %", "Margen neto", "pct"),
+                ("Participación ventas %", "Participación", "pct"),
+            ],
+            row_class_fn=lambda row, idx: "highlight-row" if "Proyectos" in str(row.get("Unidad","")) else ""
+        )
+
+    elif view_selected == "Proyectos":
+        st.markdown('<div class="section-title">Unidad de negocio: Proyectos</div>', unsafe_allow_html=True)
+        trend_note("Esta vista muestra ventas mensuales, conciliación y desempeño comercial del equipo. Orlando Martínez y Ana Margarita Sahagún suman en KPIs corporativos, pero no participan en el comparativo de ingenieros.")
+
+        monthly_chart(
+            projects_base,
+            "Ventas mensuales proyectos",
+            "Ventas_MXN",
+            key="monthly_proyectos_v56",
+            detail_label="Proyectos"
+        )
+        if display_mode == "Análisis":
+            monthly_summary_table(projects_base, "Resumen mensual de ventas proyectos (MXN)", "Ventas_MXN")
+
+        st.markdown('<div class="section-title">Desempeño Comercial del Equipo</div>', unsafe_allow_html=True)
+        performance_year = projects_year[~projects_year["Promotor"].fillna("").str.upper().isin(EXCLUDE_FROM_ENGINEER_ANALYSIS)].copy()
+        performance_base = projects_base[~projects_base["Promotor"].fillna("").str.upper().isin(EXCLUDE_FROM_ENGINEER_ANALYSIS)].copy()
+
+        if not performance_year.empty:
+            prom = performance_year.groupby("Promotor", as_index=False).agg(
+                Ventas_MXN=("Ventas_MXN","sum"),
+                Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"),
+                Clientes=("Cliente","nunique"),
+                Meses_Con_Venta=("Mes_Num","nunique")
+            )
+            prom["Margen_Bruto_Pct"] = prom["Utilidad_Bruta_MXN"] / prom["Ventas_MXN"].replace(0,pd.NA) * 100
+            prom["Meta_YTD"] = project_monthly_target * len(months_ytd)
+            prom["Cumplimiento_YTD_Pct"] = prom["Ventas_MXN"] / prom["Meta_YTD"].replace(0,pd.NA) * 100
+            prom["Semaforo"] = prom["Cumplimiento_YTD_Pct"].apply(lambda x: "🟢 Cumple" if pd.notna(x) and x >= 100 else ("🟡 Cerca" if pd.notna(x) and x >= 80 else "🔴 Bajo meta"))
+
+            def prom_alert(row):
+                issues = []
+                if pd.notna(row["Cumplimiento_YTD_Pct"]) and row["Cumplimiento_YTD_Pct"] < 80:
+                    issues.append("Bajo meta YTD")
+                if pd.notna(row["Margen_Bruto_Pct"]) and row["Margen_Bruto_Pct"] < 20:
+                    issues.append("Margen bajo")
+                return ", ".join(issues) if issues else "Sin alerta"
+
+            prom["Alerta"] = prom.apply(prom_alert, axis=1)
+
+            c_rank1, c_rank2 = st.columns([1.05, 1])
+            with c_rank1:
+                fig = px.bar(
+                    prom.sort_values("Ventas_MXN"), x="Ventas_MXN", y="Promotor", orientation="h",
+                    title="Ranking promotores por ventas",
+                    hover_data=["Utilidad_Bruta_MXN","Margen_Bruto_Pct","Clientes","Cumplimiento_YTD_Pct"],
+                    color_discrete_sequence=["#123E70"]
+                )
+                fig.update_traces(hovertemplate="%{y}<br>Ventas $%{x:,.0f}<extra></extra>")
+                style_exec_chart(fig, height=430, money_axis=False, legend=False)
+                fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+                st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+            with c_rank2:
+                fig = px.scatter(
+                    prom, x="Ventas_MXN", y="Margen_Bruto_Pct", size="Utilidad_Bruta_MXN", color="Promotor",
+                    title="Ventas vs margen bruto por promotor",
+                    hover_data=["Clientes","Cumplimiento_YTD_Pct"]
+                )
+                style_exec_chart(fig, height=430, money_axis=False, legend=True)
+                fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+                fig.update_yaxes(ticksuffix="%")
+                st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+
+            st.markdown('<div class="section-title">Ranking Comercial INTEREY</div>', unsafe_allow_html=True)
+            st.caption("Lectura ejecutiva por ingeniero: ventas acumuladas, utilidad bruta, margen y avance contra meta.")
+            premium_engineer_table(prom)
+
+            st.markdown('<div class="section-title">Heatmap mensual de cumplimiento por promotor</div>', unsafe_allow_html=True)
+            prom_month = performance_base[(performance_base["Año"] == selected_year) & (performance_base["Mes_Num"].isin(months_ytd))].groupby(["Promotor","Mes_Num"], as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
+            prom_month["Cumplimiento_Pct"] = prom_month["Ventas_MXN"] / project_monthly_target * 100 if project_monthly_target else 0
+            prom_month["Mes"] = prom_month["Mes_Num"].map(MONTHS_ES)
+            heat_table = prom_month.pivot_table(index="Promotor", columns="Mes", values="Cumplimiento_Pct", aggfunc="mean").reindex(columns=[MONTHS_ES[m] for m in months_ytd])
+            if not heat_table.empty:
+                fig_heat = px.imshow(
+                    heat_table.fillna(0),
+                    labels=dict(x="Mes", y="Promotor", color="% Cumplimiento"),
+                    color_continuous_scale=[(0.0, "#DC2626"), (0.6, "#F59E0B"), (1.0, "#16A34A")],
+                    aspect="auto",
+                    zmin=0,
+                    zmax=max(float(prom_month["Cumplimiento_Pct"].max()) if not prom_month.empty else 100, 100)
+                )
+                fig_heat.update_layout(height=410, margin=dict(l=20,r=20,t=35,b=35), paper_bgcolor="rgba(0,0,0,0)")
+                st.plotly_chart(fig_heat, use_container_width=True, config=PLOT_CONFIG)
+
+            render_engineer_detail_fragment(
+                performance_year=performance_year,
+                prom_month=prom_month,
+                project_monthly_target=project_monthly_target,
+                months_ytd=months_ytd,
+            )
+        else:
+            st.info("No hay datos de ingenieros/promotores comparables para el filtro actual. Los KPIs corporativos de Proyectos sí pueden incluir Orlando Martínez y Ana Margarita Sahagún.")
+
+    elif view_selected == "Ingresos Comprometidos":
+        render_backlog_view(backlog, project_monthly_target * 12 * engineers)
+
+    else:  # Tienda
+        st.markdown('<div class="section-title">Unidad de negocio: Tienda</div>', unsafe_allow_html=True)
+        trend_note("Esta vista muestra ventas mensuales, conciliación y clientes principales. Tienda usa Total como venta y excluye registros cancelados.")
+
+        monthly_chart(
+            store_base,
+            "Ventas mensuales tienda",
+            "Ventas_MXN",
+            key="monthly_tienda_v56",
+            detail_label="Tienda"
+        )
+        if display_mode == "Análisis":
+            monthly_summary_table(store_base, "Resumen mensual de ventas tienda (MXN)", "Ventas_MXN")
+
+        st.markdown('<div class="section-title">Clientes tienda</div>', unsafe_allow_html=True)
+        if not store_year.empty:
+            cli = store_year.groupby("Cliente", as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
+            cli["Margen_Bruto_Pct"] = cli["Utilidad_Bruta_MXN"] / cli["Ventas_MXN"].replace(0,pd.NA) * 100
+            fig = px.bar(cli.sort_values("Ventas_MXN", ascending=False).head(10).sort_values("Ventas_MXN"), x="Ventas_MXN", y="Cliente", orientation="h", title="Top 10 clientes tienda", color_discrete_sequence=["#123E70"])
+            fig.update_traces(hovertemplate="%{y}<br>$%{x:,.0f}<extra></extra>")
+            style_exec_chart(fig, height=430, money_axis=False, legend=False)
+            fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+            st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+            cli_show = cli.sort_values("Ventas_MXN", ascending=False).head(25).copy()
+            premium_simple_table(
+                cli_show,
+                "Ranking Ejecutivo de Clientes Tienda",
+                "Principales clientes por ventas, utilidad y margen dentro del periodo seleccionado.",
+                columns=[
+                    ("Cliente", "Cliente", "text"),
+                    ("Ventas_MXN", "Ventas", "money"),
+                    ("Utilidad_Bruta_MXN", "Utilidad", "money"),
+                    ("Margen_Bruto_Pct", "Margen", "pct"),
+                ],
+                row_class_fn=lambda row, idx: "highlight-row" if idx == cli_show.index[0] else ""
+            )
+        else:
+            st.info("No hay datos de tienda para el filtro actual.")
+
+    with st.expander("Auditoría avanzada de datos filtrados"):
+        st.caption("Se muestran datos desde 01/ene/2024 hasta la fecha más reciente encontrada en los archivos cargados.")
+        if view_selected == "Proyectos":
+            cols = [c for c in ["Id","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Descripcion","Moneda","TC","Tipo_Cambio_Aplicado","Cotizado cliente","Ventas_MXN","Utilidad bruta","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in projects.columns]
+            st.dataframe(projects[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
+        elif view_selected == "Tienda":
+            cols = [c for c in ["Fecha","Año","Mes_Num","Mes","Status","Status_Normalizado","Cliente","Pago","SubTotal","Ventas_MXN","Util $","Utilidad_Bruta_MXN","Margen_Bruto_Pct","Total"] if c in store.columns]
+            st.dataframe(store[cols].sort_values("Fecha", ascending=False), use_container_width=True, hide_index=True)
+        elif view_selected == "Ingresos Comprometidos":
+            if backlog.empty:
+                st.info("No hay datos de ingresos comprometidos para auditar.")
+            else:
+                cols = [c for c in ["Id","Fecha_OC","Dias_Abiertos","Antigüedad","Promotor","Cliente","Descripcion","Moneda","TC","Cotizado cliente","Importe_Pendiente_MXN","Status"] if c in backlog.columns]
+                st.dataframe(backlog[cols].sort_values("Dias_Abiertos", ascending=False), use_container_width=True, hide_index=True)
+        else:
+            cols = [c for c in ["Unidad","Fecha","Año","Mes_Num","Mes","Promotor","Cliente","Ventas_MXN","Utilidad_Bruta_MXN","Margen_Bruto_Pct"] if c in combined_year.columns]
+            st.dataframe(combined_year[cols].sort_values(["Unidad","Fecha"], ascending=[True,False]), use_container_width=True, hide_index=True)
+
+
+
+render_dashboard_body()
+
+with st.expander("ℹ️ Información metodológica"):
+    st.markdown("""
+    - Corte automático: desde **01/ene/2024** hasta el último mes con ventas disponible en los archivos maestros.
+    - Proyectos usa **Cotizado cliente** para ventas y **Utilidad bruta** para utilidad.
+    - Las operaciones en USD de Proyectos se convierten con **TC real por operación**.
+    - Tienda usa **Total** para ventas y **Util $** para utilidad.
+    - Tienda excluye registros con estatus **Cancelado**.
+    - Gastos automáticos desde **GASTOS OPERATIVOS 2026.xlsx**: Proyectos = **RESUMEN / Total general**; Tienda = **GASTOS TIENDA 2026 / fila 2026**.
+    - Ingresos comprometidos usa el snapshot vigente de proyectos con **OC aprobada**, en ejecución y pendientes de facturar.
+    - La antigüedad se calcula desde la fecha de recepción de la OC hasta la fecha actual.
+    - El archivo de ingresos comprometidos **reemplaza** el snapshot anterior; no se acumula históricamente.
+    - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
+    """)
+
+st.caption("Versión v66 NEXT LEVEL · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
