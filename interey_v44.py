@@ -1117,51 +1117,218 @@ def _selected_plotly_point(event):
 
 
 @st.fragment
-def render_month_explorer_fragment(df, monthly, selected_ref, key, detail_label):
+def render_month_chart_fragment(df, monthly, title, ycol, key, detail_label, interactive=True):
     """
-    Fragmento independiente:
-    al cambiar año/mes, SOLO se vuelve a ejecutar el Explorador Mensual.
-    La gráfica y el resto del dashboard permanecen visibles y estables.
+    Gráfica mensual ejecutiva EXPERT FOCUS.
+
+    El año elegido en el control segmentado se convierte en el año "en foco":
+    - línea principal azul INTEREY, sólida y gruesa;
+    - halo sutil para separarla visualmente;
+    - años de contexto conservan identidad mediante tonos + patrones de línea;
+    - etiquetas directas al final de cada serie;
+    - todo el bloque vive dentro de @st.fragment para mantener transición suave.
     """
+    if monthly.empty:
+        st.info("No hay datos para graficar.")
+        return
+
     years = sorted(monthly["Año"].dropna().astype(int).unique().tolist())
     if not years:
         return
 
-    st.markdown(
-        '<div style="font-size:.82rem;font-weight:850;color:#0B1F4D;'
-        'margin-top:-4px;margin-bottom:4px;">🔎 Explorador mensual</div>',
-        unsafe_allow_html=True
-    )
-    st.caption("Selecciona año y mes. El detalle se actualiza en este mismo bloque.")
+    default_focus = globals().get("selected_year", max(years))
+    if default_focus not in years:
+        default_focus = max(years)
 
-    default_year = selected_ref if selected_ref in years else max(years)
-
-    if len(years) > 1:
-        explore_year = st.segmented_control(
-            "Año a explorar",
+    # ---------- SELECTOR DE AÑO EN FOCO ----------
+    if interactive and key and len(years) > 1:
+        st.markdown(
+            '<div style="display:flex;align-items:center;gap:8px;margin:2px 0 4px 0;">'
+            '<span style="font-size:.78rem;font-weight:900;color:#64748B;'
+            'letter-spacing:.05em;text-transform:uppercase;">Año en foco</span>'
+            '</div>',
+            unsafe_allow_html=True
+        )
+        focus_year = st.segmented_control(
+            "Año en foco",
             options=years,
-            default=default_year,
+            default=default_focus,
             selection_mode="single",
             required=True,
-            key=f"{key}_explore_year",
+            key=f"{key}_focus_year",
             label_visibility="collapsed",
             width="content",
         )
     else:
-        explore_year = years[0]
+        focus_year = default_focus
 
+    focus_year = int(focus_year)
+
+    # ---------- ESTILOS ESTABLES PARA AÑOS DE CONTEXTO ----------
+    # Los patrones permiten distinguir las series incluso sin depender solo del color.
+    dash_cycle = ["dot", "dash", "dashdot", "longdash"]
+    historical_colors = ["#B8C3D1", "#7D8DA3", "#9DAABD", "#66788F"]
+
+    dash_map = {}
+    hist_color_map = {}
+    h = 0
+    for idx, year in enumerate(years):
+        dash_map[year] = dash_cycle[idx % len(dash_cycle)]
+        if year != focus_year:
+            hist_color_map[year] = historical_colors[h % len(historical_colors)]
+            h += 1
+
+    fig = go.Figure()
+
+    # Halo del año en foco: crea profundidad sin convertir la gráfica en algo llamativo de más.
+    focus_data = monthly[monthly["Año"] == focus_year].sort_values("Mes_Num")
+    if not focus_data.empty:
+        fig.add_trace(go.Scatter(
+            x=focus_data["Mes_Num"],
+            y=focus_data[ycol],
+            mode="lines",
+            line=dict(color="rgba(18,62,112,0.12)", width=11),
+            hoverinfo="skip",
+            showlegend=False,
+            legendgroup=str(focus_year),
+            name=f"{focus_year} halo",
+        ))
+
+    # Series históricas + serie en foco.
+    for year in years:
+        temp = monthly[monthly["Año"] == year].sort_values("Mes_Num")
+        if temp.empty:
+            continue
+
+        is_focus = year == focus_year
+
+        if is_focus:
+            line_color = "#123E70"
+            line_width = 4.5
+            line_dash = "solid"
+            marker_size = 10
+            marker_color = "#123E70"
+            opacity = 1.0
+        else:
+            line_color = hist_color_map.get(year, "#94A3B8")
+            line_width = 2.35
+            line_dash = dash_map.get(year, "dash")
+            marker_size = 6.5
+            marker_color = line_color
+            opacity = 0.78
+
+        fig.add_trace(go.Scatter(
+            x=temp["Mes_Num"],
+            y=temp[ycol],
+            mode="lines+markers",
+            name=str(year),
+            legendgroup=str(year),
+            line=dict(
+                color=line_color,
+                width=line_width,
+                dash=line_dash,
+            ),
+            marker=dict(
+                size=marker_size,
+                color=marker_color,
+                line=dict(
+                    width=1.6 if is_focus else 0.8,
+                    color="#FFFFFF",
+                ),
+            ),
+            opacity=opacity,
+            customdata=temp[["Mes"]].values if "Mes" in temp.columns else None,
+            hovertemplate=(
+                f"<b>{year}</b><br>"
+                "Mes: %{x}<br>"
+                "$%{y:,.0f}"
+                "<extra></extra>"
+            ),
+        ))
+
+        # Etiqueta directa al final de cada serie.
+        last = temp.iloc[-1]
+        last_month = int(last["Mes_Num"])
+        last_value = float(last[ycol])
+
+        if is_focus:
+            label_text = f"<b>{year} · EN FOCO</b>"
+            label_color = "#123E70"
+            label_bg = "rgba(238,246,255,.96)"
+            label_border = "#B7CFEA"
+        else:
+            label_text = f"<b>{year}</b>"
+            label_color = line_color
+            label_bg = "rgba(255,255,255,.88)"
+            label_border = "rgba(148,163,184,.30)"
+
+        fig.add_annotation(
+            x=min(last_month + 0.18, 12.35),
+            y=last_value,
+            text=label_text,
+            showarrow=False,
+            xanchor="left",
+            yanchor="middle",
+            font=dict(size=10, color=label_color),
+            bgcolor=label_bg,
+            bordercolor=label_border,
+            borderwidth=1,
+            borderpad=4,
+        )
+
+    fig.update_layout(
+        title=title,
+        hovermode="x unified",
+        transition=dict(duration=280, easing="cubic-in-out"),
+        uirevision=f"{key}_focus_chart",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.03,
+            xanchor="right",
+            x=1,
+            title=None,
+            itemclick="toggle",
+            itemdoubleclick="toggleothers",
+        ),
+    )
+
+    fig.update_xaxes(
+        tickmode="array",
+        tickvals=list(range(1, 13)),
+        ticktext=MONTH_ORDER,
+        range=[0.65, 12.7],
+    )
+
+    style_exec_chart(fig, height=430, money_axis=True, legend=True)
+
+    st.plotly_chart(
+        fig,
+        width="stretch",
+        config=PLOT_CONFIG,
+        key=f"{key}_chart_focus" if key else None,
+    )
+
+    if not interactive or not key:
+        return
+
+    st.caption(
+        f"🎯 {focus_year} está en foco. Los otros años permanecen visibles como contexto "
+        "con patrones distintos para compararlos de un vistazo."
+    )
+
+    # ---------- EXPLORADOR DEL MES ----------
     available_months = sorted(
-        monthly.loc[monthly["Año"] == int(explore_year), "Mes_Num"]
+        monthly.loc[monthly["Año"] == focus_year, "Mes_Num"]
         .dropna()
         .astype(int)
         .unique()
         .tolist()
     )
-
     if not available_months:
         return
 
-    month_key = f"{key}_explore_month_{int(explore_year)}"
+    month_key = f"{key}_explore_month_{focus_year}"
     default_month = max(available_months)
 
     explore_month = st.segmented_control(
@@ -1179,10 +1346,9 @@ def render_month_explorer_fragment(df, monthly, selected_ref, key, detail_label)
     if explore_month is None:
         return
 
-    # El detalle vive dentro del fragmento para que cambie sin reconstruir la página.
     render_month_drilldown(
         df,
-        int(explore_year),
+        focus_year,
         int(explore_month),
         detail_label
     )
@@ -1190,11 +1356,9 @@ def render_month_explorer_fragment(df, monthly, selected_ref, key, detail_label)
 
 def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True, detail_label="Detalle mensual"):
     """
-    Gráfica mensual ejecutiva estable + Explorador Mensual con transición suave.
-
-    La gráfica permanece fuera del fragmento.
-    Año, mes y detalle viven dentro de @st.fragment, por lo que al cambiar
-    la selección no desaparece ni se reconstruye el resto del dashboard.
+    Wrapper mensual:
+    toda la experiencia de gráfica + año en foco + mes + detalle corre dentro
+    de un fragmento independiente para evitar recargar el dashboard completo.
     """
     if df.empty:
         st.info("No hay datos para graficar.")
@@ -1206,82 +1370,17 @@ def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True, deta
     )
     monthly["Año"] = monthly["Año"].astype(int)
     monthly["Mes_Num"] = monthly["Mes_Num"].astype(int)
-    monthly["Año_Texto"] = monthly["Año"].astype(str)
+    monthly["Mes"] = monthly["Mes_Num"].map(MONTHS_ES)
 
-    years = sorted(monthly["Año"].dropna().astype(int).unique().tolist())
-    selected_ref = globals().get("selected_year", max(years) if years else None)
-
-    color_map = {}
-    muted = ["#94A3B8", "#64748B", "#CBD5E1"]
-    muted_i = 0
-    for y in years:
-        if y == selected_ref:
-            color_map[str(y)] = "#123E70"
-        else:
-            color_map[str(y)] = muted[muted_i % len(muted)]
-            muted_i += 1
-
-    fig = px.line(
-        monthly,
-        x="Mes_Num",
-        y=ycol,
-        color="Año_Texto",
-        markers=True,
+    render_month_chart_fragment(
+        df=df,
+        monthly=monthly,
         title=title,
-        color_discrete_map=color_map,
-        labels={ycol: "Importe", "Año_Texto": "Año"},
-        render_mode="svg",
+        ycol=ycol,
+        key=key or "monthly_chart",
+        detail_label=detail_label,
+        interactive=interactive,
     )
-
-    for trace in fig.data:
-        try:
-            trace_year = int(trace.name)
-        except Exception:
-            trace_year = None
-
-        if trace_year == selected_ref:
-            trace.update(
-                line=dict(width=4),
-                marker=dict(size=10, line=dict(width=1.5, color="#FFFFFF")),
-                opacity=1,
-            )
-        else:
-            trace.update(
-                line=dict(width=2),
-                marker=dict(size=7),
-                opacity=.46,
-            )
-
-        trace.hovertemplate = (
-            "<b>%{fullData.name}</b><br>"
-            "Mes: %{x}<br>"
-            "$%{y:,.0f}"
-            "<extra></extra>"
-        )
-
-    fig.update_layout(hovermode="x unified")
-    fig.update_xaxes(
-        tickmode="array",
-        tickvals=list(range(1, 13)),
-        ticktext=MONTH_ORDER
-    )
-    style_exec_chart(fig, height=410, money_axis=True, legend=True)
-
-    st.plotly_chart(
-        fig,
-        width="stretch",
-        config=PLOT_CONFIG,
-        key=f"{key}_chart" if key else None,
-    )
-
-    if interactive and key:
-        render_month_explorer_fragment(
-            df=df,
-            monthly=monthly,
-            selected_ref=selected_ref,
-            key=key,
-            detail_label=detail_label,
-        )
 
 
 def render_month_drilldown(df, year, month, label="Detalle mensual"):
@@ -2326,4 +2425,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v62 NEXT LEVEL · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v63 NEXT LEVEL · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
