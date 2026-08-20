@@ -1184,7 +1184,9 @@ def radar_interey(consol_fc, proj_fc, store_fc):
         </div>
     </div>
     """
-    st.markdown(html, unsafe_allow_html=True)
+    # st.html renderiza HTML directamente y evita que Markdown interprete
+    # la sangría interna como bloques de código.
+    st.html(html)
 
 
 def status_from_pct(pct, green=100, yellow=90):
@@ -2674,4 +2676,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v64 NEXT LEVEL · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v65 NEXT LEVEL · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
