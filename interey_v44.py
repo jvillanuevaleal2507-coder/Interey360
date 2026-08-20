@@ -781,6 +781,224 @@ st.markdown("""
     .backlog-detail-item:nth-child(3){border-left:none;padding-left:0;}
 }
 
+/* Desempeño Comercial 2.0 */
+.team-exec-strip{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    background:#FFFFFF;
+    border:1px solid #DDE5EE;
+    border-radius:16px;
+    overflow:hidden;
+    margin:8px 0 14px 0;
+    box-shadow:0 6px 18px rgba(15,23,42,.05);
+}
+.team-exec-cell{
+    padding:12px 14px;
+    border-right:1px solid #E7EDF4;
+    position:relative;
+}
+.team-exec-cell:last-child{border-right:none;}
+.team-exec-cell:before{
+    content:"";
+    position:absolute;
+    top:0;
+    left:14px;
+    right:14px;
+    height:3px;
+    border-radius:0 0 4px 4px;
+    background:#123E70;
+}
+.team-exec-cell.good:before{background:#118C7E;}
+.team-exec-cell.warn:before{background:#D97706;}
+.team-exec-cell.bad:before{background:#D52B24;}
+.team-exec-label{
+    color:#64748B;
+    font-size:.64rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+    margin-top:3px;
+}
+.team-exec-value{
+    color:#0B1F4D;
+    font-size:1.05rem;
+    font-weight:950;
+    margin-top:6px;
+    line-height:1.16;
+}
+.team-exec-sub{
+    color:#718096;
+    font-size:.69rem;
+    margin-top:4px;
+    line-height:1.25;
+}
+
+.team-ranking{
+    background:#FFFFFF;
+    border:1px solid #DDE5EE;
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 6px 18px rgba(15,23,42,.05);
+    margin:8px 0 16px 0;
+}
+.team-ranking-head,
+.team-ranking-row{
+    display:grid;
+    grid-template-columns:42px minmax(150px,1.25fr) minmax(110px,.85fr) minmax(190px,1.25fr) minmax(120px,.85fr) minmax(105px,.75fr);
+    align-items:center;
+}
+.team-ranking-head{
+    background:#F6F8FB;
+    color:#64748B;
+    border-bottom:1px solid #E1E7EF;
+    font-size:.64rem;
+    font-weight:900;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+}
+.team-ranking-head > div{padding:9px 10px;}
+.team-ranking-row{
+    border-bottom:1px solid #EDF1F5;
+    min-height:66px;
+}
+.team-ranking-row:last-child{border-bottom:none;}
+.team-ranking-row:hover{background:#FBFCFE;}
+.team-ranking-row > div{padding:10px;}
+.team-rank-number{
+    color:#94A3B8;
+    font-size:.78rem;
+    font-weight:900;
+    text-align:center;
+}
+.team-rank-name{
+    color:#0B1F4D;
+    font-size:.79rem;
+    font-weight:900;
+    line-height:1.20;
+}
+.team-rank-sales{
+    color:#0B1F4D;
+    font-size:.83rem;
+    font-weight:950;
+}
+.team-rank-secondary{
+    color:#64748B;
+    font-size:.67rem;
+    margin-top:2px;
+}
+.team-progress-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    font-size:.69rem;
+    color:#64748B;
+    margin-bottom:5px;
+}
+.team-progress-value{
+    color:#0B1F4D;
+    font-weight:900;
+}
+.team-progress-track{
+    height:8px;
+    background:#EDF1F5;
+    border-radius:999px;
+    overflow:hidden;
+}
+.team-progress-fill{
+    height:8px;
+    border-radius:999px;
+    background:#123E70;
+}
+.team-progress-fill.good{background:#118C7E;}
+.team-progress-fill.warn{background:#D97706;}
+.team-progress-fill.bad{background:#D52B24;}
+.team-status{
+    display:inline-block;
+    border-radius:999px;
+    padding:5px 8px;
+    font-size:.65rem;
+    font-weight:900;
+    background:#F1F5F9;
+    color:#526174;
+    white-space:nowrap;
+}
+.team-status.good{background:#EAF7F4;color:#0F766E;}
+.team-status.warn{background:#FFF7E6;color:#A65E00;}
+.team-status.bad{background:#FDECEC;color:#B42318;}
+
+.team-pulse-wrap{
+    overflow-x:auto;
+    border:1px solid #DDE5EE;
+    border-radius:15px;
+    background:#FFFFFF;
+    box-shadow:0 5px 16px rgba(15,23,42,.04);
+    margin:8px 0 16px 0;
+}
+.team-pulse{
+    width:100%;
+    border-collapse:collapse;
+    font-size:.72rem;
+}
+.team-pulse th{
+    background:#F6F8FB;
+    color:#64748B;
+    font-size:.63rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    padding:8px 9px;
+    border-bottom:1px solid #E1E7EF;
+    text-align:center;
+}
+.team-pulse th:first-child{text-align:left;}
+.team-pulse td{
+    padding:8px 9px;
+    border-bottom:1px solid #EDF1F5;
+    text-align:center;
+    color:#475569;
+}
+.team-pulse tr:last-child td{border-bottom:none;}
+.team-pulse td:first-child{
+    text-align:left;
+    color:#0B1F4D;
+    font-weight:850;
+    white-space:nowrap;
+}
+.pulse-value{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+    font-weight:850;
+}
+.pulse-dot{
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:#94A3B8;
+}
+.pulse-dot.good{background:#118C7E;}
+.pulse-dot.warn{background:#D97706;}
+.pulse-dot.bad{background:#D52B24;}
+.pulse-dot.none{background:#CBD5E1;}
+
+@media(max-width:1050px){
+    .team-exec-strip{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .team-exec-cell:nth-child(2){border-right:none;}
+    .team-exec-cell:nth-child(-n+2){border-bottom:1px solid #E7EDF4;}
+}
+@media(max-width:820px){
+    .team-ranking-head{display:none;}
+    .team-ranking-row{
+        grid-template-columns:34px 1.3fr 1fr;
+        gap:0;
+    }
+    .team-ranking-row > div:nth-child(4),
+    .team-ranking-row > div:nth-child(5),
+    .team-ranking-row > div:nth-child(6){
+        grid-column:2/4;
+    }
+}
 
 
 /* Executive summary V43 */
@@ -2217,7 +2435,7 @@ def monthly_summary_table(df, title="Resumen mensual de ventas (MXN)", ycol="Ven
 
 
 def premium_engineer_table(prom_df):
-    """Tabla premium HTML estable para Ranking Comercial INTEREY."""
+    """Tabla premium HTML estable para Ranking ejecutivo del equipo."""
     if prom_df.empty:
         st.info("No hay datos comparables de ingenieros para el filtro actual.")
         return
@@ -3486,49 +3704,168 @@ def render_dashboard_body():
 
             prom["Alerta"] = prom.apply(prom_alert, axis=1)
 
-            c_rank1, c_rank2 = st.columns([1.05, 1])
-            with c_rank1:
-                fig = px.bar(
-                    prom.sort_values("Ventas_MXN"), x="Ventas_MXN", y="Promotor", orientation="h",
-                    title="Ranking promotores por ventas",
-                    hover_data=["Utilidad_Bruta_MXN","Margen_Bruto_Pct","Clientes","Cumplimiento_YTD_Pct"],
-                    color_discrete_sequence=["#123E70"]
-                )
-                fig.update_traces(hovertemplate="%{y}<br>Ventas $%{x:,.0f}<extra></extra>")
-                style_exec_chart(fig, height=430, money_axis=False, legend=False)
-                fig.update_xaxes(tickprefix="$", tickformat=",.0f")
-                st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
-            with c_rank2:
-                fig = px.scatter(
-                    prom, x="Ventas_MXN", y="Margen_Bruto_Pct", size="Utilidad_Bruta_MXN", color="Promotor",
-                    title="Ventas vs margen bruto por promotor",
-                    hover_data=["Clientes","Cumplimiento_YTD_Pct"]
-                )
-                style_exec_chart(fig, height=430, money_axis=False, legend=True)
-                fig.update_xaxes(tickprefix="$", tickformat=",.0f")
-                fig.update_yaxes(ticksuffix="%")
-                st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+            # ---------- LECTURA EJECUTIVA DEL EQUIPO ----------
+            ranking = prom.sort_values("Ventas_MXN", ascending=False).reset_index(drop=True)
 
-            st.markdown('<div class="section-title">Ranking Comercial INTEREY</div>', unsafe_allow_html=True)
-            st.caption("Lectura ejecutiva por ingeniero: ventas acumuladas, utilidad bruta, margen y avance contra meta.")
-            premium_engineer_table(prom)
+            leader = ranking.iloc[0]
+            best_margin = prom.sort_values("Margen_Bruto_Pct", ascending=False).iloc[0]
+            best_compliance = prom.sort_values("Cumplimiento_YTD_Pct", ascending=False).iloc[0]
+            on_target = int((prom["Cumplimiento_YTD_Pct"] >= 100).sum())
+            team_count = int(len(prom))
 
-            st.markdown('<div class="section-title">Heatmap mensual de cumplimiento por promotor</div>', unsafe_allow_html=True)
-            prom_month = performance_base[(performance_base["Año"] == selected_year) & (performance_base["Mes_Num"].isin(months_ytd))].groupby(["Promotor","Mes_Num"], as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
-            prom_month["Cumplimiento_Pct"] = prom_month["Ventas_MXN"] / project_monthly_target * 100 if project_monthly_target else 0
-            prom_month["Mes"] = prom_month["Mes_Num"].map(MONTHS_ES)
-            heat_table = prom_month.pivot_table(index="Promotor", columns="Mes", values="Cumplimiento_Pct", aggfunc="mean").reindex(columns=[MONTHS_ES[m] for m in months_ytd])
-            if not heat_table.empty:
-                fig_heat = px.imshow(
-                    heat_table.fillna(0),
-                    labels=dict(x="Mes", y="Promotor", color="% Cumplimiento"),
-                    color_continuous_scale=[(0.0, "#DC2626"), (0.6, "#F59E0B"), (1.0, "#16A34A")],
-                    aspect="auto",
-                    zmin=0,
-                    zmax=max(float(prom_month["Cumplimiento_Pct"].max()) if not prom_month.empty else 100, 100)
+            summary_html = f"""
+            <div class="team-exec-strip">
+                <div class="team-exec-cell">
+                    <div class="team-exec-label">Líder en ventas</div>
+                    <div class="team-exec-value">{html_lib.escape(str(leader["Promotor"]))}</div>
+                    <div class="team-exec-sub">{fmt_money(leader["Ventas_MXN"])} acumulados</div>
+                </div>
+                <div class="team-exec-cell {'good' if float(best_compliance["Cumplimiento_YTD_Pct"]) >= 100 else 'warn' if float(best_compliance["Cumplimiento_YTD_Pct"]) >= 80 else 'bad'}">
+                    <div class="team-exec-label">Mayor cumplimiento</div>
+                    <div class="team-exec-value">{fmt_pct(best_compliance["Cumplimiento_YTD_Pct"])}</div>
+                    <div class="team-exec-sub">{html_lib.escape(str(best_compliance["Promotor"]))}</div>
+                </div>
+                <div class="team-exec-cell good">
+                    <div class="team-exec-label">Mejor margen bruto</div>
+                    <div class="team-exec-value">{fmt_pct(best_margin["Margen_Bruto_Pct"])}</div>
+                    <div class="team-exec-sub">{html_lib.escape(str(best_margin["Promotor"]))}</div>
+                </div>
+                <div class="team-exec-cell {'good' if on_target == team_count and team_count else 'warn' if on_target > 0 else 'bad'}">
+                    <div class="team-exec-label">Ingenieros en meta</div>
+                    <div class="team-exec-value">{on_target} de {team_count}</div>
+                    <div class="team-exec-sub">Cumplimiento YTD ≥ 100%</div>
+                </div>
+            </div>
+            """
+            st.html(summary_html)
+
+            # ---------- RANKING EJECUTIVO ----------
+            st.markdown('<div class="section-title">Ranking ejecutivo del equipo</div>', unsafe_allow_html=True)
+            st.caption("Una sola lectura combina ventas, avance contra meta, utilidad, margen y estado comercial.")
+
+            ranking_rows = []
+            for i, row in ranking.iterrows():
+                avance = float(row.get("Cumplimiento_YTD_Pct", 0) or 0)
+                margen = float(row.get("Margen_Bruto_Pct", 0) or 0)
+
+                if avance >= 100:
+                    status_class = "good"
+                    status_text = "En meta"
+                elif avance >= 80:
+                    status_class = "warn"
+                    status_text = "Seguimiento"
+                else:
+                    status_class = "bad"
+                    status_text = "Bajo meta"
+
+                progress_width = max(0, min(avance, 100))
+
+                ranking_rows.append(f"""
+                <div class="team-ranking-row">
+                    <div class="team-rank-number">{i + 1}</div>
+                    <div>
+                        <div class="team-rank-name">{html_lib.escape(str(row.get("Promotor","")))}</div>
+                        <div class="team-rank-secondary">{int(row.get("Clientes",0))} clientes</div>
+                    </div>
+                    <div>
+                        <div class="team-rank-sales">{fmt_money(row.get("Ventas_MXN",0))}</div>
+                        <div class="team-rank-secondary">ventas YTD</div>
+                    </div>
+                    <div>
+                        <div class="team-progress-top">
+                            <span>Avance vs meta</span>
+                            <span class="team-progress-value">{fmt_pct(avance)}</span>
+                        </div>
+                        <div class="team-progress-track">
+                            <div class="team-progress-fill {status_class}" style="width:{progress_width:.1f}%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="team-rank-sales">{fmt_money(row.get("Utilidad_Bruta_MXN",0))}</div>
+                        <div class="team-rank-secondary">utilidad · margen {fmt_pct(margen)}</div>
+                    </div>
+                    <div>
+                        <span class="team-status {status_class}">{status_text}</span>
+                    </div>
+                </div>
+                """)
+
+            ranking_html = f"""
+            <div class="team-ranking">
+                <div class="team-ranking-head">
+                    <div>#</div>
+                    <div>Ingeniero</div>
+                    <div>Ventas</div>
+                    <div>Avance</div>
+                    <div>Utilidad / margen</div>
+                    <div>Estado</div>
+                </div>
+                {''.join(ranking_rows)}
+            </div>
+            """
+            st.html(ranking_html)
+
+            # ---------- PULSO MENSUAL ----------
+            # Sustituye el heatmap saturado por una matriz compacta y sobria.
+            prom_month = (
+                performance_base[
+                    (performance_base["Año"] == selected_year) &
+                    (performance_base["Mes_Num"].isin(months_ytd))
+                ]
+                .groupby(["Promotor","Mes_Num"], as_index=False)
+                .agg(
+                    Ventas_MXN=("Ventas_MXN","sum"),
+                    Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum")
                 )
-                fig_heat.update_layout(height=410, margin=dict(l=20,r=20,t=35,b=35), paper_bgcolor="rgba(0,0,0,0)")
-                st.plotly_chart(fig_heat, use_container_width=True, config=PLOT_CONFIG)
+            )
+            prom_month["Cumplimiento_Pct"] = (
+                prom_month["Ventas_MXN"] / project_monthly_target * 100
+                if project_monthly_target else 0
+            )
+
+            if display_mode == "Análisis":
+                st.markdown('<div class="section-title">Pulso mensual del equipo</div>', unsafe_allow_html=True)
+                st.caption("Matriz compacta de cumplimiento mensual. El color funciona solo como señal, no como fondo dominante.")
+
+                pulse_rows = []
+                ordered_promoters = ranking["Promotor"].tolist()
+
+                for promoter in ordered_promoters:
+                    cells = []
+                    for m in months_ytd:
+                        match = prom_month[
+                            (prom_month["Promotor"] == promoter) &
+                            (prom_month["Mes_Num"] == m)
+                        ]
+                        if match.empty:
+                            cells.append('<td><span class="pulse-value"><span class="pulse-dot none"></span>—</span></td>')
+                        else:
+                            pct = float(match.iloc[0]["Cumplimiento_Pct"])
+                            cls = "good" if pct >= 100 else ("warn" if pct >= 80 else "bad")
+                            cells.append(
+                                f'<td><span class="pulse-value"><span class="pulse-dot {cls}"></span>{pct:,.0f}%</span></td>'
+                            )
+
+                    pulse_rows.append(
+                        f"<tr><td>{html_lib.escape(str(promoter))}</td>{''.join(cells)}</tr>"
+                    )
+
+                pulse_html = f"""
+                <div class="team-pulse-wrap">
+                    <table class="team-pulse">
+                        <thead>
+                            <tr>
+                                <th>Ingeniero</th>
+                                {''.join(f'<th>{MONTHS_ES[m]}</th>' for m in months_ytd)}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {''.join(pulse_rows)}
+                        </tbody>
+                    </table>
+                </div>
+                """
+                st.html(pulse_html)
 
             render_engineer_detail_fragment(
                 performance_year=performance_year,
@@ -3621,4 +3958,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v68 EXECUTIVE CLEANUP · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v69 TEAM PERFORMANCE 2.0 · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
