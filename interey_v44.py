@@ -1164,7 +1164,156 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 @media (max-width:1200px){.exec-pulse-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.drill-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media (max-width:760px){.exec-pulse-grid,.drill-grid{grid-template-columns:1fr;}.drill-head{display:block;}.drill-badge{display:inline-block;margin-top:8px;}}
 
-</style>
+/* V70 · Premium charts & compact alerts */
+.closing-alert{
+    background:linear-gradient(135deg,#FFF7E8 0%,#FFFBEF 100%);
+    border:1px solid rgba(217,119,6,.18);
+    border-left:4px solid #D97706;
+    border-radius:14px;
+    padding:12px 14px;
+    margin:0 0 14px 0;
+    box-shadow:0 6px 18px rgba(15,23,42,.04);
+}
+.closing-alert-title{
+    font-size:.72rem;
+    color:#A65E00;
+    text-transform:uppercase;
+    font-weight:900;
+    letter-spacing:.08em;
+}
+.closing-alert-body{
+    margin-top:4px;
+    color:#7C5B18;
+    font-size:.83rem;
+    line-height:1.35;
+}
+.closing-alert-body b{color:#8A4B08;}
+
+.bullet-card{
+    background:linear-gradient(135deg,#FFFFFF 0%,#F8FAFD 100%);
+    border:1px solid rgba(18,62,112,.12);
+    border-radius:18px;
+    padding:16px 18px 14px 18px;
+    box-shadow:0 8px 22px rgba(15,23,42,.05);
+    margin:6px 0 16px 0;
+}
+.bullet-card-head{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:flex-start;
+    margin-bottom:10px;
+}
+.bullet-title{
+    color:#0B1F4D;
+    font-size:1.02rem;
+    font-weight:950;
+    line-height:1.2;
+}
+.bullet-sub{
+    color:#64748B;
+    font-size:.76rem;
+    margin-top:4px;
+}
+.bullet-value-block{
+    text-align:right;
+}
+.bullet-value{
+    color:#0B1F4D;
+    font-size:2.05rem;
+    font-weight:950;
+    line-height:1;
+}
+.bullet-status{
+    display:inline-block;
+    margin-top:5px;
+    border-radius:999px;
+    padding:5px 9px;
+    font-size:.68rem;
+    font-weight:900;
+    border:1px solid #E2E8F0;
+    background:#F8FAFC;
+    color:#526174;
+}
+.bullet-status.good{background:#EAF7F4;color:#0F766E;border-color:#BEE3DB;}
+.bullet-status.warn{background:#FFF7E6;color:#A65E00;border-color:#F4D39A;}
+.bullet-status.bad{background:#FDECEC;color:#B42318;border-color:#F3C0C0;}
+.bullet-track{
+    position:relative;
+    height:18px;
+    border-radius:999px;
+    overflow:hidden;
+    background:#E9EEF5;
+    box-shadow:inset 0 1px 2px rgba(15,23,42,.06);
+}
+.bullet-zone-red{
+    position:absolute;left:0;top:0;bottom:0;width:60%;
+    background:linear-gradient(90deg,#FCE1E1 0%,#F8D8D8 100%);
+}
+.bullet-zone-amber{
+    position:absolute;left:60%;top:0;bottom:0;width:6.6667%;
+    background:linear-gradient(90deg,#F9E9B8 0%,#F2DE97 100%);
+}
+.bullet-zone-green{
+    position:absolute;left:66.6667%;top:0;bottom:0;width:33.3333%;
+    background:linear-gradient(90deg,#D9F2E5 0%,#C7E9D5 100%);
+}
+.bullet-progress{
+    position:absolute;left:0;top:0;bottom:0;
+    background:linear-gradient(90deg,#163C74 0%,#0B1F4D 100%);
+    opacity:.96;
+}
+.bullet-marker{
+    position:absolute;top:-4px;bottom:-4px;width:3px;background:#0B1F4D;border-radius:999px;
+    box-shadow:0 0 0 3px rgba(255,255,255,.88), 0 2px 8px rgba(11,31,77,.18);
+}
+.bullet-scale{
+    display:flex;justify-content:space-between;gap:10px;
+    color:#64748B;font-size:.67rem;margin-top:6px;
+}
+.bullet-kpis{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:10px;
+    margin-top:12px;
+}
+.bullet-mini{
+    border:1px solid #E7EDF4;
+    border-radius:14px;
+    padding:10px 12px;
+    background:#FFFFFF;
+}
+.bullet-mini-label{
+    color:#64748B;
+    font-size:.67rem;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    font-weight:900;
+}
+.bullet-mini-value{
+    color:#0B1F4D;
+    font-size:1.02rem;
+    font-weight:950;
+    margin-top:5px;
+}
+.bullet-mini-sub{
+    color:#718096;
+    font-size:.71rem;
+    margin-top:4px;
+}
+@media (max-width:900px){
+    .bullet-card-head{display:block;}
+    .bullet-value-block{text-align:left;margin-top:8px;}
+    .bullet-kpis{grid-template-columns:1fr;}
+}
+
+.chart-caption-premium{
+    color:#64748B;
+    font-size:.76rem;
+    margin-top:-2px;
+    margin-bottom:8px;
+}
+
 """, unsafe_allow_html=True)
 
 MONTHS_ES = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
@@ -2933,7 +3082,6 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
     g1, g2 = st.columns(2)
 
     with g1:
-        # Barra horizontal 100%: lectura ejecutiva inmediata del riesgo por antigüedad.
         age_palette = {
             "🟢 0–30 días": "#73AFA7",
             "🟡 31–60 días": "#C7A45A",
@@ -2946,15 +3094,20 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
             amount = float(row["Importe"].iloc[0]) if not row.empty else 0
             count = int(row["Proyectos"].iloc[0]) if not row.empty else 0
             share = float(row["Participacion"].iloc[0]) if not row.empty else 0
+            name_clean = bucket.replace("🟢 ","").replace("🟡 ","").replace("🟠 ","").replace("🔴 ","")
             fig_age.add_trace(go.Bar(
                 y=["Backlog"],
                 x=[amount],
-                name=bucket.replace("🟢 ","").replace("🟡 ","").replace("🟠 ","").replace("🔴 ",""),
+                name=name_clean,
                 orientation="h",
-                marker_color=age_palette[bucket],
-                customdata=[[count, share]],
+                marker=dict(color=age_palette[bucket], line=dict(width=0)),
+                text=[f"{share:.0f}%" if share >= 8 else ""],
+                textposition="inside",
+                insidetextanchor="middle",
+                textfont=dict(color="white", size=12),
+                customdata=[[count, share, name_clean]],
                 hovertemplate=(
-                    f"<b>{bucket}</b><br>"
+                    "<b>%{customdata[2]}</b><br>"
                     "Importe: $%{x:,.0f}<br>"
                     "Proyectos: %{customdata[0]}<br>"
                     "Participación: %{customdata[1]:.1f}%<extra></extra>"
@@ -2962,35 +3115,51 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
             ))
         fig_age.update_layout(
             barmode="stack",
-            title="Distribución financiera por antigüedad",
+            title="Backlog financiero por antigüedad",
             xaxis_title=None,
             yaxis_title=None,
+            bargap=0.35,
         )
-        style_exec_chart(fig_age, height=360, money_axis=False, legend=True)
-        fig_age.update_xaxes(tickprefix="$", tickformat=",.0f")
+        style_exec_chart(fig_age, height=350, money_axis=False, legend=True)
+        fig_age.update_xaxes(tickprefix="$", tickformat=",.0f", showgrid=True, gridcolor="#EEF2F7")
+        fig_age.update_yaxes(showgrid=False)
         st.plotly_chart(fig_age, use_container_width=True, config=PLOT_CONFIG)
+        st.markdown('<div class="chart-caption-premium">La lectura rápida se centra en cuánto del backlog está sano, en seguimiento o en zona crítica.</div>', unsafe_allow_html=True)
 
     with g2:
-        top_clients = client_summary.head(10).sort_values("Importe", ascending=True)
-        fig_clients = px.bar(
-            top_clients,
-            x="Importe",
-            y="Cliente",
+        top_clients = client_summary.head(10).copy().reset_index(drop=True)
+        top_clients["Rank"] = top_clients.index + 1
+        top_clients["Cliente_Label"] = top_clients.apply(lambda r: f'{int(r["Rank"])} · {r["Cliente"]}', axis=1)
+        top_clients = top_clients.sort_values("Importe", ascending=True)
+
+        backlog_colors = []
+        for _, r in top_clients.iterrows():
+            if int(r["Rank"]) == 1:
+                backlog_colors.append("#0B1F4D")
+            elif int(r["Rank"]) == 2:
+                backlog_colors.append("#123E70")
+            elif int(r["Rank"]) == 3:
+                backlog_colors.append("#2B5D92")
+            else:
+                backlog_colors.append("#B8C7D9")
+
+        fig_clients = go.Figure(go.Bar(
+            x=top_clients["Importe"],
+            y=top_clients["Cliente_Label"],
             orientation="h",
-            text="Proyectos",
-            title="Top 10 clientes por ingreso pendiente",
-            hover_data={"Importe": ":,.0f", "Proyectos": True},
-            color_discrete_sequence=["#123E70"],
-        )
-        fig_clients.update_traces(
-            texttemplate="%{text}",
+            marker=dict(color=backlog_colors),
+            text=[fmt_money(v) for v in top_clients["Importe"]],
             textposition="outside",
-            marker_line_width=0,
-            opacity=.88,
-        )
-        style_exec_chart(fig_clients, height=360, money_axis=False, legend=False)
-        fig_clients.update_xaxes(tickprefix="$", tickformat=",.0f")
+            cliponaxis=False,
+            customdata=list(zip(top_clients["Cliente"], top_clients["Proyectos"], top_clients["Participacion"])),
+            hovertemplate="<b>%{customdata[0]}</b><br>Ingreso pendiente: $%{x:,.0f}<br>Proyectos: %{customdata[1]}<br>Participación: %{customdata[2]:.1f}%<extra></extra>",
+        ))
+        fig_clients.update_layout(title="Clientes con mayor ingreso pendiente")
+        style_exec_chart(fig_clients, height=350, money_axis=False, legend=False)
+        fig_clients.update_xaxes(tickprefix="$", tickformat=",.0f", showgrid=True, gridcolor="#EEF2F7")
+        fig_clients.update_yaxes(showgrid=False)
         st.plotly_chart(fig_clients, use_container_width=True, config=PLOT_CONFIG)
+        st.markdown('<div class="chart-caption-premium">Se destacan los clientes con mayor concentración del backlog pendiente de facturación.</div>', unsafe_allow_html=True)
 
     # ---------- DETALLE MASTER-DETAIL ----------
     render_backlog_detail_fragment(backlog_df)
@@ -3543,15 +3712,18 @@ consol_fc["venta_req"] = (consol_fc["meta_anual"] - consol_fc["ventas_ytd"]) / c
 if selected_year == 2026 and (missing_proj_exp or missing_store_exp):
     pending_parts = []
     if missing_proj_exp:
-        pending_parts.append("Proyectos: " + ", ".join(MONTHS_ES[m] for m in missing_proj_exp))
+        pending_parts.append("Proyectos (" + ", ".join(MONTHS_ES[m] for m in missing_proj_exp) + ")")
     if missing_store_exp:
-        pending_parts.append("Tienda: " + ", ".join(MONTHS_ES[m] for m in missing_store_exp))
-    st.warning(
-        "⚠️ Ventas disponibles hasta "
-        + MONTHS_ES[max(selected_months)]
-        + ", pero faltan gastos administrativos para: "
-        + " | ".join(pending_parts)
-        + ". La utilidad neta debe considerarse provisional hasta actualizar esos gastos."
+        pending_parts.append("Tienda (" + ", ".join(MONTHS_ES[m] for m in missing_store_exp) + ")")
+    closing_month = MONTHS_ES[max(selected_months)]
+    st.markdown(
+        '<div class="closing-alert">'
+        '<div class="closing-alert-title">Cierre administrativo pendiente</div>'
+        '<div class="closing-alert-body"><b>' + closing_month + ' pendiente de cierre</b> · '
+        'Ventas actualizadas, pero aún faltan gastos de ' + ' · '.join(pending_parts) + '. '
+        'La utilidad neta debe leerse como <b>provisional</b> hasta capturar esos gastos.</div>'
+        '</div>',
+        unsafe_allow_html=True
     )
 
 # ---------- HEADER ----------
@@ -3634,22 +3806,67 @@ def render_dashboard_body():
 
     elif view_selected == "Consolidado":
         st.markdown('<div class="section-title">Resultado corporativo</div>', unsafe_allow_html=True)
-        gauge = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=consol_fc["cumplimiento"],
-            title={'text': "Cumplimiento proyectado vs meta consolidada"},
-            gauge={
-                'axis': {'range': [0, 150]},
-                'bar': {'color': '#0B1F4D'},
-                'steps': [
-                    {'range':[0,90],'color':'#FEE2E2'},
-                    {'range':[90,100],'color':'#FEF3C7'},
-                    {'range':[100,150],'color':'#DCFCE7'}
-                ]
-            }
-        ))
-        gauge.update_layout(height=330, margin=dict(l=25,r=25,t=55,b=20), paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#334155"))
-        st.plotly_chart(gauge, use_container_width=True, config=PLOT_CONFIG)
+        cumplimiento = float(consol_fc["cumplimiento"] or 0)
+        forecast = float(consol_fc["forecast_ventas"] or 0)
+        meta = float(consol_fc["meta_anual"] or 0)
+        gap = float(consol_fc["gap"] or 0)
+        marker_pct = max(0, min(cumplimiento / 150 * 100, 100))
+        progress_pct = max(0, min(cumplimiento / 150 * 100, 100))
+        if cumplimiento >= 100:
+            bullet_state = "good"
+            bullet_label = "En línea / arriba de meta"
+        elif cumplimiento >= 90:
+            bullet_state = "warn"
+            bullet_label = "Seguimiento cercano"
+        else:
+            bullet_state = "bad"
+            bullet_label = "Riesgo alto"
+
+        bullet_html = f"""
+        <div class="bullet-card">
+            <div class="bullet-card-head">
+                <div>
+                    <div class="bullet-title">Cumplimiento proyectado vs meta consolidada</div>
+                    <div class="bullet-sub">Lectura ejecutiva de avance proyectado al cierre contra la meta anual consolidada.</div>
+                </div>
+                <div class="bullet-value-block">
+                    <div class="bullet-value">{cumplimiento:,.1f}%</div>
+                    <span class="bullet-status {bullet_state}">{bullet_label}</span>
+                </div>
+            </div>
+
+            <div class="bullet-track">
+                <div class="bullet-zone-red"></div>
+                <div class="bullet-zone-amber"></div>
+                <div class="bullet-zone-green"></div>
+                <div class="bullet-progress" style="width:{progress_pct:.2f}%"></div>
+                <div class="bullet-marker" style="left:calc({marker_pct:.2f}% - 1.5px);"></div>
+            </div>
+
+            <div class="bullet-scale">
+                <span>0%</span><span>90%</span><span>100%</span><span>150%</span>
+            </div>
+
+            <div class="bullet-kpis">
+                <div class="bullet-mini">
+                    <div class="bullet-mini-label">Forecast ventas</div>
+                    <div class="bullet-mini-value">{fmt_money(forecast)}</div>
+                    <div class="bullet-mini-sub">Proyección de cierre anual</div>
+                </div>
+                <div class="bullet-mini">
+                    <div class="bullet-mini-label">Meta consolidada</div>
+                    <div class="bullet-mini-value">{fmt_money(meta)}</div>
+                    <div class="bullet-mini-sub">Objetivo anual corporativo</div>
+                </div>
+                <div class="bullet-mini">
+                    <div class="bullet-mini-label">Brecha proyectada</div>
+                    <div class="bullet-mini-value">{fmt_money(abs(gap))}</div>
+                    <div class="bullet-mini-sub">{'Excedente proyectado' if gap >= 0 else 'Faltante proyectado'}</div>
+                </div>
+            </div>
+        </div>
+        """
+        st.markdown(bullet_html, unsafe_allow_html=True)
         trend_note("La utilidad neta ya se resume en las tarjetas superiores; la vista Consolidado conserva únicamente indicadores y tendencias que aportan una lectura corporativa.")
 
         st.markdown('<div class="section-title">Evolución mensual consolidada</div>', unsafe_allow_html=True)
@@ -3901,11 +4118,41 @@ def render_dashboard_body():
         if not store_year.empty:
             cli = store_year.groupby("Cliente", as_index=False).agg(Ventas_MXN=("Ventas_MXN","sum"), Utilidad_Bruta_MXN=("Utilidad_Bruta_MXN","sum"))
             cli["Margen_Bruto_Pct"] = cli["Utilidad_Bruta_MXN"] / cli["Ventas_MXN"].replace(0,pd.NA) * 100
-            fig = px.bar(cli.sort_values("Ventas_MXN", ascending=False).head(10).sort_values("Ventas_MXN"), x="Ventas_MXN", y="Cliente", orientation="h", title="Top 10 clientes tienda", color_discrete_sequence=["#123E70"])
-            fig.update_traces(hovertemplate="%{y}<br>$%{x:,.0f}<extra></extra>")
-            style_exec_chart(fig, height=430, money_axis=False, legend=False)
-            fig.update_xaxes(tickprefix="$", tickformat=",.0f")
+
+            top10 = cli.sort_values("Ventas_MXN", ascending=False).head(10).copy().reset_index(drop=True)
+            top10["Rank"] = top10.index + 1
+            top10["Cliente_Label"] = top10.apply(lambda r: f'{int(r["Rank"])} · {r["Cliente"]}', axis=1)
+            top10 = top10.sort_values("Ventas_MXN", ascending=True)
+
+            colors = []
+            for _, r in top10.iterrows():
+                if int(r["Rank"]) == 1:
+                    colors.append("#0B1F4D")
+                elif int(r["Rank"]) == 2:
+                    colors.append("#123E70")
+                elif int(r["Rank"]) == 3:
+                    colors.append("#2B5D92")
+                else:
+                    colors.append("#B8C7D9")
+
+            fig = go.Figure(go.Bar(
+                x=top10["Ventas_MXN"],
+                y=top10["Cliente_Label"],
+                orientation="h",
+                marker=dict(color=colors),
+                text=[fmt_money(v) for v in top10["Ventas_MXN"]],
+                textposition="outside",
+                cliponaxis=False,
+                customdata=list(zip(top10["Cliente"], top10["Margen_Bruto_Pct"], top10["Utilidad_Bruta_MXN"], top10["Rank"])),
+                hovertemplate="<b>%{customdata[0]}</b><br>Ventas: $%{x:,.0f}<br>Utilidad: $%{customdata[2]:,.0f}<br>Margen: %{customdata[1]:.1f}%<br>Posición: %{customdata[3]}<extra></extra>",
+            ))
+            fig.update_layout(title="Clientes con mayor facturación en Tienda")
+            style_exec_chart(fig, height=445, money_axis=False, legend=False)
+            fig.update_xaxes(tickprefix="$", tickformat=",.0f", showgrid=True, gridcolor="#EEF2F7")
+            fig.update_yaxes(showgrid=False)
             st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+            st.markdown('<div class="chart-caption-premium">Se destacan los tres clientes con mayor facturación del periodo; el resto funciona como contexto comercial.</div>', unsafe_allow_html=True)
+
             cli_show = cli.sort_values("Ventas_MXN", ascending=False).head(25).copy()
             premium_simple_table(
                 cli_show,
@@ -3958,4 +4205,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v69 TEAM PERFORMANCE 2.0 · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v70 PREMIUM CHARTS · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
