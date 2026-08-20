@@ -2249,7 +2249,7 @@ def _selected_plotly_point(event):
 @st.fragment
 def render_month_chart_fragment(
     df, monthly, title, ycol, key, detail_label,
-    interactive=True, target_map=None
+    interactive=True, target_map=None, show_explorer=True
 ):
     """Gráfica ejecutiva mensual/acumulada con año en foco y meta acumulada."""
     if monthly.empty:
@@ -2410,7 +2410,7 @@ def render_month_chart_fragment(
     else:
         st.caption(f"🎯 {focus_year} en foco · Los otros años permanecen visibles como contexto histórico.")
 
-    if not interactive:
+    if not interactive or not show_explorer:
         return
 
     available_months = sorted(
@@ -2436,7 +2436,7 @@ def render_month_chart_fragment(
 
 def monthly_chart(
     df, title, ycol="Ventas_MXN", key=None, interactive=True,
-    detail_label="Detalle mensual", target_map=None
+    detail_label="Detalle mensual", target_map=None, show_explorer=True
 ):
     if df.empty:
         st.info("No hay datos para graficar.")
@@ -2459,6 +2459,7 @@ def monthly_chart(
         detail_label=detail_label,
         interactive=interactive,
         target_map=target_map,
+        show_explorer=show_explorer,
     )
 
 
@@ -3888,11 +3889,24 @@ def render_dashboard_body():
     # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
     if view_selected == "Resumen Ejecutivo":
         render_backlog_coverage_strip(backlog, proj_fc)
+
+        st.markdown('<div class="section-title">Trayectoria comercial consolidada</div>', unsafe_allow_html=True)
+        monthly_chart(
+            combined_base,
+            "Ventas consolidadas",
+            "Ventas_MXN",
+            key="monthly_resumen_executive_v74",
+            detail_label="Consolidado",
+            target_map=consol_target_map,
+            interactive=True,
+            show_explorer=False,
+        )
+
         if display_mode == "Análisis":
             render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
             render_executive_summary(consol_fc, proj_fc, store_fc, show_table=True)
         else:
-            trend_note("Vista Dirección: Radar, seis KPIs esenciales y cobertura del backlog. Cambia a Análisis para conciliaciones y detalle.")
+            trend_note("Vista Dirección: Radar, seis KPIs esenciales, cobertura del backlog y trayectoria comercial. El detalle operativo permanece en Análisis.")
 
     elif view_selected == "Consolidado":
         st.markdown('<div class="section-title">Resultado corporativo</div>', unsafe_allow_html=True)
@@ -4300,4 +4314,5 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v73 EXECUTIVE DIRECTION · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v74 EXECUTIVE DIRECTION · CHART RESTORED · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+
