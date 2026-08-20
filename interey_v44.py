@@ -113,6 +113,216 @@ st.markdown("""
 @media (max-width: 1200px){.radar2-grid{grid-template-columns:1fr 1fr;}}
 @media (max-width: 760px){.radar-head{display:block;} .radar-badge{display:inline-block;margin-top:10px;} .radar2-grid{grid-template-columns:1fr;}}
 
+/* Radar INTEREY 4.0 · Executive Command Bar */
+.radar-exec{
+    background:#FFFFFF;
+    border:1px solid #DDE5EE;
+    border-radius:20px;
+    overflow:hidden;
+    margin:12px 0 18px 0;
+    box-shadow:0 10px 28px rgba(15,23,42,.07);
+}
+.radar-exec-top{
+    background:linear-gradient(135deg,#0B1F4D 0%,#123E70 72%,#1C568D 100%);
+    color:#FFFFFF;
+    padding:14px 18px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+}
+.radar-exec-brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+}
+.radar-exec-icon{
+    width:32px;
+    height:32px;
+    border-radius:10px;
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.18);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1rem;
+}
+.radar-exec-title{
+    font-size:1.08rem;
+    font-weight:950;
+    letter-spacing:-.02em;
+    color:#FFFFFF;
+}
+.radar-exec-kicker{
+    font-size:.68rem;
+    font-weight:800;
+    letter-spacing:.10em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,.68);
+    margin-top:1px;
+}
+.radar-exec-status{
+    border-radius:999px;
+    padding:7px 11px;
+    font-size:.73rem;
+    font-weight:900;
+    letter-spacing:.02em;
+    white-space:nowrap;
+    border:1px solid rgba(255,255,255,.24);
+    background:rgba(255,255,255,.10);
+    color:#FFFFFF;
+}
+.radar-exec-summary{
+    padding:15px 18px 13px 18px;
+    border-bottom:1px solid #E7EDF4;
+    background:linear-gradient(180deg,#FFFFFF 0%,#FBFCFE 100%);
+}
+.radar-exec-summary-label{
+    font-size:.68rem;
+    color:#64748B;
+    text-transform:uppercase;
+    font-weight:900;
+    letter-spacing:.10em;
+    margin-bottom:5px;
+}
+.radar-exec-summary-title{
+    color:#0B1F4D;
+    font-size:1.23rem;
+    line-height:1.20;
+    font-weight:950;
+    letter-spacing:-.025em;
+}
+.radar-exec-summary-sub{
+    color:#64748B;
+    font-size:.79rem;
+    line-height:1.35;
+    margin-top:5px;
+}
+.radar-exec-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    background:#FFFFFF;
+}
+.radar-exec-metric{
+    min-height:108px;
+    padding:14px 17px 13px 17px;
+    border-right:1px solid #E7EDF4;
+    position:relative;
+}
+.radar-exec-metric:last-child{border-right:none;}
+.radar-exec-metric:before{
+    content:"";
+    position:absolute;
+    top:0;
+    left:17px;
+    right:17px;
+    height:3px;
+    border-radius:0 0 4px 4px;
+    background:#123E70;
+}
+.radar-exec-metric.good:before{background:#118C7E;}
+.radar-exec-metric.warn:before{background:#D97706;}
+.radar-exec-metric.bad:before{background:#D52B24;}
+.radar-exec-metric.neutral:before{background:#64748B;}
+.radar-exec-label{
+    color:#64748B;
+    font-size:.69rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.075em;
+    margin-top:3px;
+}
+.radar-exec-value{
+    color:#0B1F4D;
+    font-size:1.45rem;
+    font-weight:950;
+    letter-spacing:-.035em;
+    line-height:1.08;
+    margin-top:8px;
+}
+.radar-exec-meta{
+    color:#64748B;
+    font-size:.74rem;
+    line-height:1.28;
+    margin-top:6px;
+}
+.radar-exec-signal{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+}
+.radar-exec-dot{
+    width:7px;
+    height:7px;
+    border-radius:50%;
+    display:inline-block;
+    background:#64748B;
+}
+.radar-exec-dot.good{background:#118C7E;}
+.radar-exec-dot.warn{background:#D97706;}
+.radar-exec-dot.bad{background:#D52B24;}
+.radar-exec-action{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    padding:12px 18px;
+    background:#F6F9FC;
+    border-top:1px solid #E7EDF4;
+}
+.radar-exec-action-left{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    min-width:0;
+}
+.radar-exec-action-icon{
+    width:30px;
+    height:30px;
+    border-radius:9px;
+    background:#E8F0FA;
+    color:#123E70;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:.92rem;
+    flex:0 0 auto;
+}
+.radar-exec-action-label{
+    color:#64748B;
+    font-size:.66rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.09em;
+}
+.radar-exec-action-text{
+    color:#1E293B;
+    font-size:.79rem;
+    font-weight:750;
+    margin-top:2px;
+}
+.radar-exec-action-value{
+    color:#0B1F4D;
+    font-size:1.28rem;
+    font-weight:950;
+    letter-spacing:-.03em;
+    white-space:nowrap;
+}
+@media (max-width:1000px){
+    .radar-exec-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .radar-exec-metric:nth-child(2){border-right:none;}
+    .radar-exec-metric:nth-child(-n+2){border-bottom:1px solid #E7EDF4;}
+}
+@media (max-width:640px){
+    .radar-exec-top{display:block;}
+    .radar-exec-status{display:inline-block;margin-top:10px;}
+    .radar-exec-grid{grid-template-columns:1fr;}
+    .radar-exec-metric{border-right:none;border-bottom:1px solid #E7EDF4;}
+    .radar-exec-metric:last-child{border-bottom:none;}
+    .radar-exec-action{align-items:flex-start;flex-direction:column;}
+    .radar-exec-action-value{padding-left:40px;}
+}
+
 
 
 /* Executive summary V43 */
@@ -835,103 +1045,142 @@ def trend_note(text):
 
 
 def radar_interey(consol_fc, proj_fc, store_fc):
-    """Radar INTEREY 3.0: lectura ejecutiva tipo consultoría con fortaleza, atención, riesgo y oportunidad."""
-    ventas = consol_fc.get("ventas_ytd", 0)
-    proj_share = (proj_fc.get("ventas_ytd", 0) / ventas * 100) if ventas else 0
-    store_share = (store_fc.get("ventas_ytd", 0) / ventas * 100) if ventas else 0
-    gap = consol_fc.get("gap", 0)
-    cumplimiento = consol_fc.get("cumplimiento", 0)
-    utilidad_neta_ytd = consol_fc.get("utilidad_neta_ytd", 0)
-    utilidad_neta_proy = consol_fc.get("utilidad_neta_proy", 0)
-    venta_req = consol_fc.get("venta_req", 0)
+    """
+    Radar INTEREY 4.0 · Executive Command Bar.
+    Resume el estado corporativo en una sola lectura, cuatro señales y una acción prioritaria.
+    """
+    gap = float(consol_fc.get("gap", 0) or 0)
+    cumplimiento = float(consol_fc.get("cumplimiento", 0) or 0)
+    utilidad_neta_proy = float(consol_fc.get("utilidad_neta_proy", 0) or 0)
+    venta_req = float(consol_fc.get("venta_req", 0) or 0)
 
-    emoji, forecast_style, forecast_status = status_from_pct(cumplimiento)
+    proj_cump = float(proj_fc.get("cumplimiento", 0) or 0)
+    store_cump = float(store_fc.get("cumplimiento", 0) or 0)
 
-    # Fortaleza: unidad con mejor cumplimiento proyectado
-    if store_fc.get("cumplimiento", 0) >= proj_fc.get("cumplimiento", 0):
-        fortaleza_txt = f"Tienda proyecta {fmt_pct(store_fc.get('cumplimiento', 0))} de su meta anual."
-        fortaleza_sub = f"Aporta {store_share:,.1f}% de los ingresos y mantiene lectura favorable contra objetivo."
+    emoji, _, forecast_status = status_from_pct(cumplimiento)
+
+    def radar_class_from_pct(value):
+        if value >= 100:
+            return "good", "En meta"
+        if value >= 90:
+            return "warn", "Seguimiento"
+        return "bad", "Riesgo"
+
+    proj_class, proj_status = radar_class_from_pct(proj_cump)
+    store_class, store_status = radar_class_from_pct(store_cump)
+
+    if utilidad_neta_proy > 0:
+        util_class = "good"
+        util_status = "Cierre positivo"
+    elif utilidad_neta_proy == 0:
+        util_class = "neutral"
+        util_status = "Punto de equilibrio"
     else:
-        fortaleza_txt = f"Proyectos lidera el avance con {fmt_pct(proj_fc.get('cumplimiento', 0))} proyectado."
-        fortaleza_sub = f"Representa {proj_share:,.1f}% de los ingresos acumulados."
+        util_class = "bad"
+        util_status = "Cierre negativo"
 
-    # Atención: utilidad neta real/proyectada
-    if utilidad_neta_ytd < 0:
-        atencion_txt = "La utilidad neta acumulada continúa en terreno negativo."
-        atencion_sub = f"Resultado YTD: {fmt_money_compact(utilidad_neta_ytd)} después de gastos."
-        atencion_class = "yellow"
-    elif utilidad_neta_proy < 0:
-        atencion_txt = "La utilidad neta proyectada aún requiere seguimiento."
-        atencion_sub = f"Cierre estimado: {fmt_money_compact(utilidad_neta_proy)} con la tendencia actual."
-        atencion_class = "yellow"
-    else:
-        atencion_txt = "La utilidad proyectada se mantiene positiva."
-        atencion_sub = f"Cierre estimado: {fmt_money_compact(utilidad_neta_proy)}."
-        atencion_class = "green"
-
-    # Riesgo principal: unidad con menor cumplimiento
-    if proj_fc.get("cumplimiento", 0) <= store_fc.get("cumplimiento", 0):
-        riesgo_txt = f"Proyectos cerraría en {fmt_pct(proj_fc.get('cumplimiento', 0))} de su meta."
-        riesgo_sub = f"Faltante proyectado de proyectos: {fmt_money_signed(proj_fc.get('gap', 0))}."
-    else:
-        riesgo_txt = f"Tienda cerraría en {fmt_pct(store_fc.get('cumplimiento', 0))} de su meta."
-        riesgo_sub = f"Faltante proyectado de tienda: {fmt_money_signed(store_fc.get('gap', 0))}."
-
-    # Oportunidad: venta requerida mensual consolidada
     if gap >= 0:
-        oportunidad_txt = "La tendencia actual proyecta excedente contra meta."
-        oportunidad_sub = f"Excedente estimado: {fmt_money_signed(gap)}."
-        oportunidad_class = "green"
+        gap_class = "good"
+        gap_label = "Excedente"
+        gap_status = "Sobre meta"
+    elif cumplimiento >= 90:
+        gap_class = "warn"
+        gap_label = "Brecha"
+        gap_status = "Recuperable"
     else:
-        oportunidad_txt = f"Incrementar ventas a {fmt_money(venta_req)} mensuales ayudaría a cerrar la brecha."
-        oportunidad_sub = f"Faltante consolidado: {fmt_money_signed(gap)}."
-        oportunidad_class = "red" if cumplimiento < 90 else "yellow"
+        gap_class = "bad"
+        gap_label = "Brecha"
+        gap_status = "Bajo objetivo"
 
     if cumplimiento >= 100:
         headline = "INTEREY proyecta cerrar por encima de la meta anual."
-        headline_sub = "El ritmo actual indica cumplimiento comercial si se mantiene la tendencia."
+        headline_sub = "El ritmo comercial actual permite una lectura favorable; el foco pasa a proteger margen y ejecución."
     elif cumplimiento >= 90:
-        headline = "INTEREY está cerca de la meta, pero necesita seguimiento comercial."
-        headline_sub = "El cierre depende de sostener ventas y controlar gastos durante los meses restantes."
+        headline = "INTEREY está cerca de la meta anual y requiere seguimiento."
+        headline_sub = "El cierre depende de sostener el ritmo comercial y controlar gastos durante los meses restantes."
     else:
         headline = "INTEREY proyecta cerrar por debajo de la meta anual."
-        headline_sub = "El foco debe estar en recuperar el faltante proyectado y proteger utilidad neta."
+        headline_sub = "La prioridad es recuperar la brecha comercial sin comprometer la rentabilidad."
+
+    if gap >= 0:
+        action_label = "Prioridad ejecutiva"
+        action_text = "Proteger el excedente proyectado y sostener la rentabilidad del cierre."
+        action_value = fmt_money_signed(gap)
+    else:
+        action_label = "Acción prioritaria"
+        action_text = "Venta promedio mensual requerida para llevar la proyección hacia la meta anual."
+        action_value = fmt_money(venta_req)
 
     html = f"""
-    <div class="radar-card">
-        <div class="radar-head">
-            <div>
-                <div class="radar-title">📡 Radar INTEREY 3.0</div>
-                <div class="radar-subtitle">Lectura ejecutiva automática: fortalezas, riesgos, utilidad, oportunidad comercial y avance proyectado.</div>
+    <div class="radar-exec">
+        <div class="radar-exec-top">
+            <div class="radar-exec-brand">
+                <div class="radar-exec-icon">📡</div>
+                <div>
+                    <div class="radar-exec-title">Radar INTEREY 4.0</div>
+                    <div class="radar-exec-kicker">Executive Command Bar</div>
+                </div>
             </div>
-            <div class="radar-badge">{emoji} Estado general: {forecast_status}</div>
+            <div class="radar-exec-status">{emoji} ESTADO GENERAL · {forecast_status.upper()}</div>
         </div>
-        <div class="radar2-grid">
-            <div class="radar2-main">
-                <div class="radar2-main-label">Lectura principal</div>
-                <div class="radar2-main-value">{headline}</div>
-                <div class="radar2-main-sub">{headline_sub}</div>
+
+        <div class="radar-exec-summary">
+            <div class="radar-exec-summary-label">Lectura ejecutiva</div>
+            <div class="radar-exec-summary-title">{headline}</div>
+            <div class="radar-exec-summary-sub">{headline_sub}</div>
+        </div>
+
+        <div class="radar-exec-grid">
+            <div class="radar-exec-metric {store_class}">
+                <div class="radar-exec-label">
+                    <span class="radar-exec-signal">
+                        <span class="radar-exec-dot {store_class}"></span>Tienda
+                    </span>
+                </div>
+                <div class="radar-exec-value">{fmt_pct(store_cump)}</div>
+                <div class="radar-exec-meta">{store_status} · cumplimiento proyectado vs meta anual</div>
             </div>
-            <div class="radar2-tile green">
-                <div class="radar2-label">🟢 Fortaleza</div>
-                <div class="radar2-value">{fortaleza_txt}</div>
-                <div class="radar2-text">{fortaleza_sub}</div>
+
+            <div class="radar-exec-metric {proj_class}">
+                <div class="radar-exec-label">
+                    <span class="radar-exec-signal">
+                        <span class="radar-exec-dot {proj_class}"></span>Proyectos
+                    </span>
+                </div>
+                <div class="radar-exec-value">{fmt_pct(proj_cump)}</div>
+                <div class="radar-exec-meta">{proj_status} · cumplimiento proyectado vs meta anual</div>
             </div>
-            <div class="radar2-tile {atencion_class}">
-                <div class="radar2-label">🟡 Atención</div>
-                <div class="radar2-value">{atencion_txt}</div>
-                <div class="radar2-text">{atencion_sub}</div>
+
+            <div class="radar-exec-metric {util_class}">
+                <div class="radar-exec-label">
+                    <span class="radar-exec-signal">
+                        <span class="radar-exec-dot {util_class}"></span>Utilidad estimada
+                    </span>
+                </div>
+                <div class="radar-exec-value">{fmt_money_compact(utilidad_neta_proy)}</div>
+                <div class="radar-exec-meta">{util_status} · utilidad neta proyectada al cierre</div>
             </div>
-            <div class="radar2-tile red">
-                <div class="radar2-label">🔴 Riesgo principal</div>
-                <div class="radar2-value">{riesgo_txt}</div>
-                <div class="radar2-text">{riesgo_sub}</div>
+
+            <div class="radar-exec-metric {gap_class}">
+                <div class="radar-exec-label">
+                    <span class="radar-exec-signal">
+                        <span class="radar-exec-dot {gap_class}"></span>{gap_label}
+                    </span>
+                </div>
+                <div class="radar-exec-value">{fmt_money_compact(gap)}</div>
+                <div class="radar-exec-meta">{gap_status} · diferencia proyectada contra meta anual</div>
             </div>
-            <div class="radar2-tile {oportunidad_class}">
-                <div class="radar2-label">🔵 Oportunidad</div>
-                <div class="radar2-value">{oportunidad_txt}</div>
-                <div class="radar2-text">{oportunidad_sub}</div>
+        </div>
+
+        <div class="radar-exec-action">
+            <div class="radar-exec-action-left">
+                <div class="radar-exec-action-icon">🎯</div>
+                <div>
+                    <div class="radar-exec-action-label">{action_label}</div>
+                    <div class="radar-exec-action-text">{action_text}</div>
+                </div>
             </div>
+            <div class="radar-exec-action-value">{action_value}</div>
         </div>
     </div>
     """
@@ -2425,4 +2674,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v63 NEXT LEVEL · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v64 NEXT LEVEL · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
