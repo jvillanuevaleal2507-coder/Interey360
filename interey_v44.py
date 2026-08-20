@@ -1314,6 +1314,60 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
     margin-bottom:8px;
 }
 
+
+/* V73 · Dirección compacta & gobierno de datos */
+.data-status-strip{
+    display:grid;
+    grid-template-columns:1.25fr repeat(3,minmax(0,.85fr));
+    background:#FFFFFF;
+    border:1px solid #DDE5EE;
+    border-radius:14px;
+    overflow:hidden;
+    margin:4px 0 14px 0;
+    box-shadow:0 5px 16px rgba(15,23,42,.04);
+}
+.data-status-main,.data-status-cell{padding:10px 13px;}
+.data-status-main{background:#F8FAFC;}
+.data-status-cell{border-left:1px solid #E7EDF4;}
+.data-status-label{color:#64748B;font-size:.63rem;font-weight:900;text-transform:uppercase;letter-spacing:.07em;}
+.data-status-value{color:#0B1F4D;font-size:.84rem;font-weight:900;margin-top:3px;}
+.data-status-value.good{color:#0F766E;}
+.data-status-value.warn{color:#A65E00;}
+
+.backlog-cover-strip{
+    display:grid;
+    grid-template-columns:1.2fr repeat(4,minmax(0,.85fr));
+    align-items:stretch;
+    background:#FFFFFF;
+    border:1px solid #DDE5EE;
+    border-radius:16px;
+    overflow:hidden;
+    margin:10px 0 16px 0;
+    box-shadow:0 6px 18px rgba(15,23,42,.045);
+}
+.backlog-cover-main,.backlog-cover-cell{padding:12px 14px;}
+.backlog-cover-main{background:linear-gradient(135deg,#F7FAFD 0%,#FFFFFF 100%);}
+.backlog-cover-cell{border-left:1px solid #E7EDF4;}
+.backlog-cover-kicker{color:#64748B;font-size:.64rem;font-weight:900;text-transform:uppercase;letter-spacing:.07em;}
+.backlog-cover-title{color:#0B1F4D;font-size:.90rem;font-weight:950;margin-top:4px;}
+.backlog-cover-sub{color:#718096;font-size:.69rem;margin-top:4px;}
+.backlog-cover-value{color:#0B1F4D;font-size:1.05rem;font-weight:950;margin-top:4px;}
+.backlog-cover-value.good{color:#0F766E;}
+.backlog-cover-value.warn{color:#A65E00;}
+.backlog-cover-value.bad{color:#B42318;}
+
+@media(max-width:1000px){
+    .data-status-strip{grid-template-columns:1fr 1fr;}
+    .data-status-main{grid-column:1/-1;border-bottom:1px solid #E7EDF4;}
+    .backlog-cover-strip{grid-template-columns:1fr 1fr;}
+    .backlog-cover-main{grid-column:1/-1;border-bottom:1px solid #E7EDF4;}
+}
+@media(max-width:640px){
+    .data-status-strip,.backlog-cover-strip{grid-template-columns:1fr;}
+    .data-status-main,.backlog-cover-main{grid-column:auto;}
+    .data-status-cell,.backlog-cover-cell{border-left:none;border-top:1px solid #E7EDF4;}
+}
+
 """, unsafe_allow_html=True)
 
 MONTHS_ES = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
@@ -2193,17 +2247,11 @@ def _selected_plotly_point(event):
 
 
 @st.fragment
-def render_month_chart_fragment(df, monthly, title, ycol, key, detail_label, interactive=True):
-    """
-    Gráfica mensual ejecutiva EXPERT FOCUS.
-
-    El año elegido en el control segmentado se convierte en el año "en foco":
-    - línea principal azul INTEREY, sólida y gruesa;
-    - halo sutil para separarla visualmente;
-    - años de contexto conservan identidad mediante tonos + patrones de línea;
-    - etiquetas directas al final de cada serie;
-    - todo el bloque vive dentro de @st.fragment para mantener transición suave.
-    """
+def render_month_chart_fragment(
+    df, monthly, title, ycol, key, detail_label,
+    interactive=True, target_map=None
+):
+    """Gráfica ejecutiva mensual/acumulada con año en foco y meta acumulada."""
     if monthly.empty:
         st.info("No hay datos para graficar.")
         return
@@ -2216,226 +2264,180 @@ def render_month_chart_fragment(df, monthly, title, ycol, key, detail_label, int
     if default_focus not in years:
         default_focus = max(years)
 
-    # ---------- SELECTOR DE AÑO EN FOCO ----------
-    if interactive and key and len(years) > 1:
-        st.markdown(
-            '<div style="display:flex;align-items:center;gap:8px;margin:2px 0 4px 0;">'
-            '<span style="font-size:.78rem;font-weight:900;color:#64748B;'
-            'letter-spacing:.05em;text-transform:uppercase;">Año en foco</span>'
-            '</div>',
-            unsafe_allow_html=True
-        )
-        focus_year = st.segmented_control(
-            "Año en foco",
-            options=years,
-            default=default_focus,
+    c_mode, c_year = st.columns([1.0, 1.3])
+    with c_mode:
+        chart_mode = st.segmented_control(
+            "Tipo de lectura",
+            options=["Mensual", "Acumulado"],
+            default="Mensual",
             selection_mode="single",
             required=True,
-            key=f"{key}_focus_year",
+            key=f"{key}_chart_mode",
             label_visibility="collapsed",
-            width="content",
+            width="stretch",
         )
-    else:
-        focus_year = default_focus
+    with c_year:
+        if interactive and len(years) > 1:
+            focus_year = st.segmented_control(
+                "Año en foco",
+                options=years,
+                default=default_focus,
+                selection_mode="single",
+                required=True,
+                key=f"{key}_focus_year",
+                label_visibility="collapsed",
+                width="stretch",
+            )
+        else:
+            focus_year = default_focus
 
     focus_year = int(focus_year)
 
-    # ---------- ESTILOS ESTABLES PARA AÑOS DE CONTEXTO ----------
-    # Los patrones permiten distinguir las series incluso sin depender solo del color.
-    dash_cycle = ["dot", "dash", "dashdot", "longdash"]
-    historical_colors = ["#B8C3D1", "#7D8DA3", "#9DAABD", "#66788F"]
+    chart_data = monthly.copy().sort_values(["Año", "Mes_Num"])
+    value_col = ycol
+    chart_title = title
 
-    dash_map = {}
+    if chart_mode == "Acumulado":
+        chart_data["Valor_Grafica"] = chart_data.groupby("Año")[ycol].cumsum()
+        value_col = "Valor_Grafica"
+        chart_title = (
+            title.replace("Ventas mensuales", "Ventas acumuladas")
+                 .replace("ventas mensuales", "ventas acumuladas")
+        )
+
+    historical_colors = ["#B8C3D1", "#7D8DA3", "#9DAABD", "#66788F"]
+    dash_cycle = ["dot", "dash", "dashdot", "longdash"]
     hist_color_map = {}
     h = 0
-    for idx, year in enumerate(years):
-        dash_map[year] = dash_cycle[idx % len(dash_cycle)]
+    for year in years:
         if year != focus_year:
             hist_color_map[year] = historical_colors[h % len(historical_colors)]
             h += 1
 
     fig = go.Figure()
 
-    # Halo del año en foco: crea profundidad sin convertir la gráfica en algo llamativo de más.
-    focus_data = monthly[monthly["Año"] == focus_year].sort_values("Mes_Num")
+    focus_data = chart_data[chart_data["Año"] == focus_year].sort_values("Mes_Num")
     if not focus_data.empty:
         fig.add_trace(go.Scatter(
             x=focus_data["Mes_Num"],
-            y=focus_data[ycol],
+            y=focus_data[value_col],
             mode="lines",
-            line=dict(color="rgba(18,62,112,0.12)", width=11),
+            line=dict(color="rgba(18,62,112,.12)", width=11),
             hoverinfo="skip",
             showlegend=False,
-            legendgroup=str(focus_year),
-            name=f"{focus_year} halo",
         ))
 
-    # Series históricas + serie en foco.
-    for year in years:
-        temp = monthly[monthly["Año"] == year].sort_values("Mes_Num")
+    for idx, year in enumerate(years):
+        temp = chart_data[chart_data["Año"] == year].sort_values("Mes_Num")
         if temp.empty:
             continue
 
         is_focus = year == focus_year
-
-        if is_focus:
-            line_color = "#123E70"
-            line_width = 4.5
-            line_dash = "solid"
-            marker_size = 10
-            marker_color = "#123E70"
-            opacity = 1.0
-        else:
-            line_color = hist_color_map.get(year, "#94A3B8")
-            line_width = 2.35
-            line_dash = dash_map.get(year, "dash")
-            marker_size = 6.5
-            marker_color = line_color
-            opacity = 0.78
+        line_color = "#123E70" if is_focus else hist_color_map.get(year, "#94A3B8")
 
         fig.add_trace(go.Scatter(
             x=temp["Mes_Num"],
-            y=temp[ycol],
+            y=temp[value_col],
             mode="lines+markers",
             name=str(year),
-            legendgroup=str(year),
             line=dict(
                 color=line_color,
-                width=line_width,
-                dash=line_dash,
+                width=4.5 if is_focus else 2.25,
+                dash="solid" if is_focus else dash_cycle[idx % len(dash_cycle)],
             ),
             marker=dict(
-                size=marker_size,
-                color=marker_color,
-                line=dict(
-                    width=1.6 if is_focus else 0.8,
-                    color="#FFFFFF",
-                ),
+                size=10 if is_focus else 6.5,
+                color=line_color,
+                line=dict(width=1.5 if is_focus else .8, color="#FFFFFF"),
             ),
-            opacity=opacity,
-            customdata=temp[["Mes"]].values if "Mes" in temp.columns else None,
-            hovertemplate=(
-                f"<b>{year}</b><br>"
-                "Mes: %{x}<br>"
-                "$%{y:,.0f}"
-                "<extra></extra>"
-            ),
+            opacity=1 if is_focus else .76,
+            hovertemplate=f"<b>{year}</b><br>Mes: %{{x}}<br>$%{{y:,.0f}}<extra></extra>",
         ))
 
-        # Etiqueta directa al final de cada serie.
         last = temp.iloc[-1]
-        last_month = int(last["Mes_Num"])
-        last_value = float(last[ycol])
-
-        if is_focus:
-            label_text = f"<b>{year} · EN FOCO</b>"
-            label_color = "#123E70"
-            label_bg = "rgba(238,246,255,.96)"
-            label_border = "#B7CFEA"
-        else:
-            label_text = f"<b>{year}</b>"
-            label_color = line_color
-            label_bg = "rgba(255,255,255,.88)"
-            label_border = "rgba(148,163,184,.30)"
-
         fig.add_annotation(
-            x=min(last_month + 0.18, 12.35),
-            y=last_value,
-            text=label_text,
+            x=min(int(last["Mes_Num"]) + .16, 12.35),
+            y=float(last[value_col]),
+            text=f"<b>{year}{' · EN FOCO' if is_focus else ''}</b>",
             showarrow=False,
             xanchor="left",
-            yanchor="middle",
-            font=dict(size=10, color=label_color),
-            bgcolor=label_bg,
-            bordercolor=label_border,
+            font=dict(size=10, color=line_color),
+            bgcolor="rgba(238,246,255,.96)" if is_focus else "rgba(255,255,255,.90)",
+            bordercolor="#B7CFEA" if is_focus else "rgba(148,163,184,.30)",
             borderwidth=1,
             borderpad=4,
         )
 
-    fig.update_layout(
-        title=title,
-        hovermode="x unified",
-        transition=dict(duration=280, easing="cubic-in-out"),
-        uirevision=f"{key}_focus_chart",
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.03,
-            xanchor="right",
-            x=1,
-            title=None,
-            itemclick="toggle",
-            itemdoubleclick="toggleothers",
-        ),
-    )
+    if chart_mode == "Acumulado" and target_map:
+        focus_target = float(target_map.get(focus_year, 0) or 0)
+        if focus_target > 0:
+            tx = list(range(1,13))
+            ty = [focus_target * m for m in tx]
+            fig.add_trace(go.Scatter(
+                x=tx, y=ty,
+                mode="lines",
+                name=f"Meta acumulada {focus_year}",
+                line=dict(color="#64748B", width=2.2, dash="dash"),
+                hovertemplate="<b>Meta acumulada</b><br>Mes: %{x}<br>$%{y:,.0f}<extra></extra>",
+            ))
 
+    fig.update_layout(
+        title=chart_title,
+        hovermode="x unified",
+        transition=dict(duration=260, easing="cubic-in-out"),
+        legend=dict(orientation="h", yanchor="bottom", y=1.03, xanchor="right", x=1, title=None),
+    )
     fig.update_xaxes(
         tickmode="array",
-        tickvals=list(range(1, 13)),
+        tickvals=list(range(1,13)),
         ticktext=MONTH_ORDER,
-        range=[0.65, 12.7],
+        range=[.65,12.7],
     )
-
     style_exec_chart(fig, height=430, money_axis=True, legend=True)
 
     st.plotly_chart(
         fig,
-        width="stretch",
+        use_container_width=True,
         config=PLOT_CONFIG,
-        key=f"{key}_chart_focus" if key else None,
+        key=f"{key}_{chart_mode}_{focus_year}",
     )
 
-    if not interactive or not key:
+    if chart_mode == "Acumulado":
+        st.caption(
+            f"📈 {focus_year} en foco · La línea punteada representa la meta acumulada. "
+            "Esta lectura muestra si el año se acerca o se aleja del plan conforme avanzan los meses."
+        )
+    else:
+        st.caption(f"🎯 {focus_year} en foco · Los otros años permanecen visibles como contexto histórico.")
+
+    if not interactive:
         return
 
-    st.caption(
-        f"🎯 {focus_year} está en foco. Los otros años permanecen visibles como contexto "
-        "con patrones distintos para compararlos de un vistazo."
-    )
-
-    # ---------- EXPLORADOR DEL MES ----------
     available_months = sorted(
-        monthly.loc[monthly["Año"] == focus_year, "Mes_Num"]
-        .dropna()
-        .astype(int)
-        .unique()
-        .tolist()
+        monthly.loc[monthly["Año"] == focus_year, "Mes_Num"].dropna().astype(int).unique().tolist()
     )
     if not available_months:
         return
 
-    month_key = f"{key}_explore_month_{focus_year}"
-    default_month = max(available_months)
-
     explore_month = st.segmented_control(
         "Mes a explorar",
         options=available_months,
-        default=default_month,
+        default=max(available_months),
         selection_mode="single",
         required=True,
         format_func=lambda m: MONTHS_ES.get(int(m), str(m)),
-        key=month_key,
+        key=f"{key}_explore_month_{focus_year}",
         label_visibility="collapsed",
         width="stretch",
     )
-
-    if explore_month is None:
-        return
-
-    render_month_drilldown(
-        df,
-        focus_year,
-        int(explore_month),
-        detail_label
-    )
+    if explore_month is not None:
+        render_month_drilldown(df, focus_year, int(explore_month), detail_label)
 
 
-def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True, detail_label="Detalle mensual"):
-    """
-    Wrapper mensual:
-    toda la experiencia de gráfica + año en foco + mes + detalle corre dentro
-    de un fragmento independiente para evitar recargar el dashboard completo.
-    """
+def monthly_chart(
+    df, title, ycol="Ventas_MXN", key=None, interactive=True,
+    detail_label="Detalle mensual", target_map=None
+):
     if df.empty:
         st.info("No hay datos para graficar.")
         return
@@ -2456,6 +2458,7 @@ def monthly_chart(df, title, ycol="Ventas_MXN", key=None, interactive=True, deta
         key=key or "monthly_chart",
         detail_label=detail_label,
         interactive=interactive,
+        target_map=target_map,
     )
 
 
@@ -2788,46 +2791,49 @@ def render_executive_summary(consol_fc, proj_fc, store_fc, show_table=True):
         )
 
 
-def render_dynamic_executive_view(view_name, fc, monthly_target_note=""):
-    """Tarjetas dinámicas para evitar duplicar KPIs por unidad."""
+def render_dynamic_executive_view(view_name, fc, monthly_target_note="", compact=False):
+    """Dirección = 6 KPIs esenciales. Análisis = 10 KPIs completos."""
     _, forecast_style, _ = status_from_pct(fc["cumplimiento"])
     gap_label, gap_style, gap_sub = gap_label_and_style(fc["gap"])
     net_style = "red" if fc["utilidad_neta_ytd"] < 0 else "green"
     net_proj_style = "red" if fc["utilidad_neta_proy"] < 0 else "green"
 
     if view_name == "Consolidado":
-        ventas_label = "💰 Ventas consolidadas"
-        utilidad_label = "📊 Utilidad bruta consolidada"
-        gastos_label = "🧾 Gastos consolidados"
-        neta_label = "🏁 Utilidad neta consolidada"
-        forecast_label = "🎯 Proyección de cierre"
-        meta_label = "Meta anual consolidada"
+        ventas_label, utilidad_label, gastos_label = "💰 Ventas", "📊 Utilidad bruta", "🧾 Gastos"
+        neta_label, forecast_label, meta_label = "🏁 Utilidad neta", "🎯 Forecast cierre", "Meta anual"
         ventas_sub = "Proyectos + Tienda"
         utilidad_sub = f"Margen bruto: {fmt_pct(fc.get('margen_bruto_ytd',0))}"
-        gastos_sub = "Gastos desde archivo administrativo"
-        meta_sub = "Proyectos + Tienda"
+        gastos_sub = "Administrativos cargados"
+        meta_sub = "Objetivo corporativo"
     elif view_name == "Proyectos":
-        ventas_label = "💰 Ventas proyectos"
-        utilidad_label = "📊 Utilidad bruta proyectos"
-        gastos_label = "🧾 Gasto proyectos"
-        neta_label = "🏁 Utilidad neta proyectos"
-        forecast_label = "🎯 Proyección de cierre proyectos"
-        meta_label = "Meta anual proyectos"
+        ventas_label, utilidad_label, gastos_label = "💰 Ventas proyectos", "📊 Utilidad bruta", "🧾 Gasto proyectos"
+        neta_label, forecast_label, meta_label = "🏁 Utilidad neta", "🎯 Forecast cierre", "Meta anual proyectos"
         ventas_sub = "Cotizado cliente × TC"
-        utilidad_sub = f"Margen bruto: {fmt_pct((fc.get('utilidad_bruta_ytd',0) / fc.get('ventas_ytd',1) * 100) if fc.get('ventas_ytd',0) else 0)}"
-        gastos_sub = "Gasto desde archivo administrativo"
+        utilidad_sub = f"Margen bruto: {fmt_pct((fc.get('utilidad_bruta_ytd',0)/fc.get('ventas_ytd',1)*100) if fc.get('ventas_ytd',0) else 0)}"
+        gastos_sub = "Administrativos cargados"
         meta_sub = monthly_target_note
     else:
-        ventas_label = "💰 Ventas tienda"
-        utilidad_label = "📊 Utilidad tienda"
-        gastos_label = "🧾 Gasto tienda"
-        neta_label = "🏁 Utilidad neta tienda"
-        forecast_label = "🎯 Proyección de cierre tienda"
-        meta_label = "Meta anual tienda"
-        ventas_sub = "Total · cancelados excluidos"
-        utilidad_sub = f"Margen bruto: {fmt_pct((fc.get('utilidad_bruta_ytd',0) / fc.get('ventas_ytd',1) * 100) if fc.get('ventas_ytd',0) else 0)}"
-        gastos_sub = "Gasto desde archivo administrativo"
+        ventas_label, utilidad_label, gastos_label = "💰 Ventas tienda", "📊 Utilidad tienda", "🧾 Gasto tienda"
+        neta_label, forecast_label, meta_label = "🏁 Utilidad neta", "🎯 Forecast cierre", "Meta anual tienda"
+        ventas_sub = "Cancelados excluidos"
+        utilidad_sub = f"Margen bruto: {fmt_pct((fc.get('utilidad_bruta_ytd',0)/fc.get('ventas_ytd',1)*100) if fc.get('ventas_ytd',0) else 0)}"
+        gastos_sub = "Administrativos cargados"
         meta_sub = monthly_target_note
+
+    if compact:
+        cols = st.columns(6)
+        values = [
+            (ventas_label, fmt_money(fc["ventas_ytd"]), ventas_sub, ""),
+            (utilidad_label, fmt_money(fc["utilidad_bruta_ytd"]), utilidad_sub, ""),
+            (gastos_label, fmt_money(fc["gasto_ytd"]), gastos_sub, "gray"),
+            (neta_label, fmt_money(fc["utilidad_neta_ytd"]), f"Margen neto: {fmt_pct(fc['margen_neto_ytd'])}", net_style),
+            (forecast_label, fmt_money(fc["forecast_ventas"]), compliance_text(fc["cumplimiento"]), forecast_style),
+            (gap_label, fmt_money_signed(fc["gap"]), gap_sub, gap_style),
+        ]
+        for col, item in zip(cols, values):
+            with col:
+                st.markdown(card(item[0], item[1], item[2], item[3]), unsafe_allow_html=True)
+        return
 
     c1,c2,c3,c4,c5 = st.columns(5)
     with c1: st.markdown(card(ventas_label, fmt_money(fc["ventas_ytd"]), ventas_sub), unsafe_allow_html=True)
@@ -2841,10 +2847,55 @@ def render_dynamic_executive_view(view_name, fc, monthly_target_note=""):
     with d1: st.markdown(card(meta_label, fmt_money(fc["meta_anual"]), meta_sub, "gray"), unsafe_allow_html=True)
     with d2: st.markdown(card(gap_label, fmt_money_signed(fc["gap"]), gap_sub, gap_style), unsafe_allow_html=True)
     venta_req_style = "red" if fc["gap"] < 0 else "green"
-    with d3: st.markdown(card("Venta requerida mensual", fmt_money(fc.get("venta_req", 0)), f"{int(fc.get('meses_restantes', 0))} meses restantes", venta_req_style), unsafe_allow_html=True)
+    with d3: st.markdown(card("Venta requerida mensual", fmt_money(fc.get("venta_req",0)), f"{int(fc.get('meses_restantes',0))} meses restantes", venta_req_style), unsafe_allow_html=True)
     with d4: st.markdown(card("Utilidad bruta estimada", fmt_money(fc["forecast_utilidad_bruta"]), "Antes de gastos", "gray"), unsafe_allow_html=True)
-    with d5: st.markdown(card("Utilidad estimada al cierre", fmt_money(fc["utilidad_neta_proy"]), f"Basado en tendencia · Margen: {fmt_pct(fc['margen_neto_proy'])}", net_proj_style), unsafe_allow_html=True)
+    with d5: st.markdown(card("Utilidad estimada al cierre", fmt_money(fc["utilidad_neta_proy"]), f"Margen: {fmt_pct(fc['margen_neto_proy'])}", net_proj_style), unsafe_allow_html=True)
 
+
+
+def render_backlog_coverage_strip(backlog_df, proj_fc):
+    """Lectura compacta de trabajo ganado vs brecha de Proyectos."""
+    if backlog_df is None or backlog_df.empty:
+        return
+
+    total = float(backlog_df["Importe_Pendiente_MXN"].sum())
+    healthy = float(backlog_df.loc[backlog_df["Dias_Abiertos"] <= 90, "Importe_Pendiente_MXN"].sum())
+    shortfall = max(-float(proj_fc.get("gap",0) or 0), 0)
+
+    coverage = (total / shortfall * 100) if shortfall else 100.0
+    healthy_coverage = (healthy / shortfall * 100) if shortfall else 100.0
+    remaining = shortfall - total if shortfall else 0.0
+
+    cov_class = "good" if coverage >= 100 else ("warn" if coverage >= 85 else "bad")
+    healthy_class = "good" if healthy_coverage >= 100 else ("warn" if healthy_coverage >= 70 else "bad")
+
+    html = f"""
+    <div class="backlog-cover-strip">
+        <div class="backlog-cover-main">
+            <div class="backlog-cover-kicker">Trabajo ganado</div>
+            <div class="backlog-cover-title">Backlog vs brecha proyectada de Proyectos</div>
+            <div class="backlog-cover-sub">Cobertura potencial sujeta a convertir OC a facturación dentro del año.</div>
+        </div>
+        <div class="backlog-cover-cell">
+            <div class="backlog-cover-kicker">Brecha</div>
+            <div class="backlog-cover-value">{fmt_money_compact(shortfall)}</div>
+        </div>
+        <div class="backlog-cover-cell">
+            <div class="backlog-cover-kicker">Backlog</div>
+            <div class="backlog-cover-value">{fmt_money_compact(total)}</div>
+        </div>
+        <div class="backlog-cover-cell">
+            <div class="backlog-cover-kicker">Cobertura total</div>
+            <div class="backlog-cover-value {cov_class}">{coverage:,.1f}%</div>
+        </div>
+        <div class="backlog-cover-cell">
+            <div class="backlog-cover-kicker">Cobertura ≤90 días</div>
+            <div class="backlog-cover-value {healthy_class}">{healthy_coverage:,.1f}%</div>
+            <div class="backlog-cover-sub">{'Brecha cubierta' if remaining <= 0 else 'Aún faltan ' + fmt_money_compact(max(remaining,0))}</div>
+        </div>
+    </div>
+    """
+    st.html(html)
 
 
 def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
@@ -3715,22 +3766,50 @@ consol_fc["gap"] = consol_fc["forecast_ventas"] - consol_fc["meta_anual"]
 consol_fc["meses_restantes"] = max(12 - len(months_ytd), 0)
 consol_fc["venta_req"] = (consol_fc["meta_anual"] - consol_fc["ventas_ytd"]) / consol_fc["meses_restantes"] if consol_fc["meses_restantes"] else 0
 
-if selected_year == 2026 and (missing_proj_exp or missing_store_exp):
-    pending_parts = []
-    if missing_proj_exp:
-        pending_parts.append("Proyectos (" + ", ".join(MONTHS_ES[m] for m in missing_proj_exp) + ")")
-    if missing_store_exp:
-        pending_parts.append("Tienda (" + ", ".join(MONTHS_ES[m] for m in missing_store_exp) + ")")
-    closing_month = MONTHS_ES[max(selected_months)]
-    st.markdown(
-        '<div class="closing-alert">'
-        '<div class="closing-alert-title">Cierre administrativo pendiente</div>'
-        '<div class="closing-alert-body"><b>' + closing_month + ' pendiente de cierre</b> · '
-        'Ventas actualizadas, pero aún faltan gastos de ' + ' · '.join(pending_parts) + '. '
-        'La utilidad neta debe leerse como <b>provisional</b> hasta capturar esos gastos.</div>'
-        '</div>',
-        unsafe_allow_html=True
-    )
+project_target_map = {
+    y: (project_monthly_target if y == selected_year else float(PROJECT_TARGETS.get(y,0))) * engineers
+    for y in VALID_YEARS
+}
+store_target_map = {
+    y: (store_monthly_target if y == selected_year else float(STORE_TARGETS.get(y,0)))
+    for y in VALID_YEARS
+}
+consol_target_map = {
+    y: project_target_map.get(y,0) + store_target_map.get(y,0)
+    for y in VALID_YEARS
+}
+
+data_status_html = None
+if selected_year == 2026:
+    sales_month = max(selected_months) if selected_months else None
+    proj_known = [m for m in selected_months if m not in missing_proj_exp]
+    store_known = [m for m in selected_months if m not in missing_store_exp]
+    proj_closed = max(proj_known) if proj_known else None
+    store_closed = max(store_known) if store_known else None
+    provisional = bool(missing_proj_exp or missing_store_exp)
+
+    data_status_html = f"""
+    <div class="data-status-strip">
+        <div class="data-status-main">
+            <div class="data-status-label">Estado de información</div>
+            <div class="data-status-value {'warn' if provisional else 'good'}">
+                {'Utilidad neta provisional' if provisional else 'Información cerrada'}
+            </div>
+        </div>
+        <div class="data-status-cell">
+            <div class="data-status-label">Ventas</div>
+            <div class="data-status-value good">{MONTHS_ES.get(sales_month,'—')} actualizado</div>
+        </div>
+        <div class="data-status-cell">
+            <div class="data-status-label">Gastos Proyectos</div>
+            <div class="data-status-value {'warn' if missing_proj_exp else 'good'}">{MONTHS_ES.get(proj_closed,'—')} cerrado</div>
+        </div>
+        <div class="data-status-cell">
+            <div class="data-status-label">Gastos Tienda</div>
+            <div class="data-status-value {'warn' if missing_store_exp else 'good'}">{MONTHS_ES.get(store_closed,'—')} cerrado</div>
+        </div>
+    </div>
+    """
 
 # ---------- HEADER ----------
 months_label = ", ".join(MONTHS_ES[m] for m in selected_months)
@@ -3766,8 +3845,9 @@ with hc3:
         unsafe_allow_html=True
     )
 st.markdown('</div>', unsafe_allow_html=True)
+if data_status_html:
+    st.html(data_status_html)
 radar_interey(consol_fc, proj_fc, store_fc)
-render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
 
 # ---------- VISTA EJECUTIVA DINÁMICA · FRAGMENTO ----------
 @st.fragment
@@ -3797,18 +3877,22 @@ def render_dashboard_body():
     )
 
     if view_selected == "Resumen Ejecutivo":
-        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
+        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda", compact=(display_mode == "Dirección"))
     elif view_selected == "Consolidado":
-        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda")
+        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda", compact=(display_mode == "Dirección"))
     elif view_selected == "Proyectos":
-        render_dynamic_executive_view("Proyectos", proj_fc, f"{engineers} ing. × {fmt_money(project_monthly_target)} × 12")
+        render_dynamic_executive_view("Proyectos", proj_fc, f"{engineers} ing. × {fmt_money(project_monthly_target)} × 12", compact=(display_mode == "Dirección"))
     elif view_selected == "Tienda":
-        render_dynamic_executive_view("Tienda", store_fc, f"{fmt_money(store_monthly_target)} × 12")
+        render_dynamic_executive_view("Tienda", store_fc, f"{fmt_money(store_monthly_target)} × 12", compact=(display_mode == "Dirección"))
 
     # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
     if view_selected == "Resumen Ejecutivo":
-        render_executive_summary(consol_fc, proj_fc, store_fc, show_table=(display_mode == "Análisis"))
-        trend_note("Resumen Ejecutivo no muestra tablas ni gráficas extensas. Para análisis detallado usa Consolidado, Proyectos o Tienda.")
+        render_backlog_coverage_strip(backlog, proj_fc)
+        if display_mode == "Análisis":
+            render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
+            render_executive_summary(consol_fc, proj_fc, store_fc, show_table=True)
+        else:
+            trend_note("Vista Dirección: Radar, seis KPIs esenciales y cobertura del backlog. Cambia a Análisis para conciliaciones y detalle.")
 
     elif view_selected == "Consolidado":
         st.markdown('<div class="section-title">Resultado corporativo</div>', unsafe_allow_html=True)
@@ -3883,7 +3967,8 @@ def render_dashboard_body():
             "Ventas mensuales consolidadas",
             "Ventas_MXN",
             key="monthly_consolidado_v56",
-            detail_label="Consolidado"
+            detail_label="Consolidado",
+            target_map=consol_target_map
         )
         if display_mode == "Análisis":
             monthly_summary_table(combined_base, "Resumen mensual de ventas consolidadas (MXN)", "Ventas_MXN")
@@ -3898,7 +3983,8 @@ def render_dashboard_body():
             "Ventas mensuales proyectos",
             "Ventas_MXN",
             key="monthly_proyectos_v56",
-            detail_label="Proyectos"
+            detail_label="Proyectos",
+            target_map=project_target_map
         )
         if display_mode == "Análisis":
             monthly_summary_table(projects_base, "Resumen mensual de ventas proyectos (MXN)", "Ventas_MXN")
@@ -4117,7 +4203,8 @@ def render_dashboard_body():
             "Ventas mensuales tienda",
             "Ventas_MXN",
             key="monthly_tienda_v56",
-            detail_label="Tienda"
+            detail_label="Tienda",
+            target_map=store_target_map
         )
         if display_mode == "Análisis":
             monthly_summary_table(store_base, "Resumen mensual de ventas tienda (MXN)", "Ventas_MXN")
@@ -4213,4 +4300,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v72 PREMIUM CHARTS · BULLET FIX · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v73 EXECUTIVE DIRECTION · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
