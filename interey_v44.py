@@ -2902,6 +2902,12 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
         .agg(Importe=("Importe_Pendiente_MXN", "sum"), Proyectos=("Cliente", "size"))
         .sort_values("Importe", ascending=False)
     )
+    # Participación de cada cliente dentro del backlog total.
+    # La gráfica premium usa esta columna en el hover; debe existir antes del Top 10.
+    client_summary["Participacion"] = (
+        client_summary["Importe"] / total * 100
+        if total else 0.0
+    )
     top_client = str(client_summary.iloc[0]["Cliente"]) if not client_summary.empty else "Sin cliente"
     top_client_amount = float(client_summary.iloc[0]["Importe"]) if not client_summary.empty else 0
     top_client_share = (top_client_amount / total * 100) if total else 0
@@ -4205,4 +4211,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v70 PREMIUM CHARTS · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v71 PREMIUM CHARTS · BACKLOG FIX · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
