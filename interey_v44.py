@@ -3872,7 +3872,9 @@ def render_dashboard_body():
             </div>
         </div>
         """
-        st.markdown(bullet_html, unsafe_allow_html=True)
+        # Render directo de HTML para evitar que Markdown interprete
+        # la sangría interna del bullet chart como bloque de código.
+        st.html(bullet_html)
         trend_note("La utilidad neta ya se resume en las tarjetas superiores; la vista Consolidado conserva únicamente indicadores y tendencias que aportan una lectura corporativa.")
 
         st.markdown('<div class="section-title">Evolución mensual consolidada</div>', unsafe_allow_html=True)
@@ -4211,4 +4213,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v71 PREMIUM CHARTS · BACKLOG FIX · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v72 PREMIUM CHARTS · BULLET FIX · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
