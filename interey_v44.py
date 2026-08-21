@@ -1369,6 +1369,143 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
     .data-status-cell,.backlog-cover-cell{border-left:none;border-top:1px solid #E7EDF4;}
 }
 
+
+/* V76 · Planeación 2027 */
+.plan27-hero{
+    background:linear-gradient(135deg,#0B1F4D 0%,#123E70 72%,#1C568D 100%);
+    color:#FFFFFF;
+    border-radius:20px;
+    padding:16px 18px;
+    margin:8px 0 14px 0;
+    box-shadow:0 10px 28px rgba(11,31,77,.14);
+}
+.plan27-kicker{
+    font-size:.67rem;
+    font-weight:900;
+    letter-spacing:.11em;
+    text-transform:uppercase;
+    color:rgba(255,255,255,.68);
+}
+.plan27-title{
+    font-size:1.30rem;
+    font-weight:950;
+    letter-spacing:-.025em;
+    margin-top:4px;
+}
+.plan27-sub{
+    font-size:.80rem;
+    color:rgba(255,255,255,.78);
+    margin-top:5px;
+    line-height:1.35;
+}
+.plan27-grid{
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:10px;
+    margin:10px 0 14px 0;
+}
+.plan27-card{
+    background:#FFFFFF;
+    border:1px solid #DDE5EE;
+    border-top:4px solid #123E70;
+    border-radius:16px;
+    padding:13px 14px;
+    box-shadow:0 6px 18px rgba(15,23,42,.05);
+    min-height:112px;
+}
+.plan27-card.good{border-top-color:#118C7E;}
+.plan27-card.warn{border-top-color:#D97706;}
+.plan27-card.bad{border-top-color:#D52B24;}
+.plan27-card.gray{border-top-color:#64748B;}
+.plan27-label{
+    color:#64748B;
+    font-size:.66rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.065em;
+}
+.plan27-value{
+    color:#0B1F4D;
+    font-size:1.36rem;
+    font-weight:950;
+    letter-spacing:-.035em;
+    margin-top:7px;
+}
+.plan27-card.good .plan27-value{color:#0F766E;}
+.plan27-card.warn .plan27-value{color:#A65E00;}
+.plan27-card.bad .plan27-value{color:#B42318;}
+.plan27-subvalue{
+    color:#718096;
+    font-size:.72rem;
+    margin-top:5px;
+    line-height:1.28;
+}
+.plan27-command{
+    display:grid;
+    grid-template-columns:1.25fr repeat(3,minmax(0,.8fr));
+    background:#FFFFFF;
+    border:1px solid #DDE5EE;
+    border-radius:17px;
+    overflow:hidden;
+    margin:10px 0 14px 0;
+    box-shadow:0 6px 18px rgba(15,23,42,.045);
+}
+.plan27-command-main,.plan27-command-cell{padding:12px 14px;}
+.plan27-command-main{background:#F8FAFC;}
+.plan27-command-cell{border-left:1px solid #E7EDF4;}
+.plan27-command-label{
+    color:#64748B;
+    font-size:.64rem;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.07em;
+}
+.plan27-command-value{
+    color:#0B1F4D;
+    font-size:1.02rem;
+    font-weight:950;
+    margin-top:5px;
+}
+.plan27-command-text{
+    color:#64748B;
+    font-size:.71rem;
+    line-height:1.30;
+    margin-top:4px;
+}
+.plan27-status{
+    display:inline-block;
+    border-radius:999px;
+    padding:5px 9px;
+    margin-top:6px;
+    font-size:.68rem;
+    font-weight:900;
+    background:#F1F5F9;
+    color:#526174;
+}
+.plan27-status.good{background:#EAF7F4;color:#0F766E;}
+.plan27-status.warn{background:#FFF7E6;color:#A65E00;}
+.plan27-status.bad{background:#FDECEC;color:#B42318;}
+.plan27-note{
+    background:#F7F9FC;
+    border-left:4px solid #123E70;
+    border-radius:12px;
+    padding:10px 12px;
+    color:#475569;
+    font-size:.76rem;
+    line-height:1.35;
+    margin:8px 0 14px 0;
+}
+@media(max-width:1050px){
+    .plan27-grid{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .plan27-command{grid-template-columns:1fr 1fr;}
+    .plan27-command-main{grid-column:1/-1;border-bottom:1px solid #E7EDF4;}
+}
+@media(max-width:640px){
+    .plan27-grid,.plan27-command{grid-template-columns:1fr;}
+    .plan27-command-main{grid-column:auto;}
+    .plan27-command-cell{border-left:none;border-top:1px solid #E7EDF4;}
+}
+
 """, unsafe_allow_html=True)
 
 MONTHS_ES = {1:"Ene",2:"Feb",3:"Mar",4:"Abr",5:"May",6:"Jun",7:"Jul",8:"Ago",9:"Sep",10:"Oct",11:"Nov",12:"Dic"}
@@ -3675,6 +3812,378 @@ def render_engineer_detail_fragment(performance_year, performance_base, project_
 
 
 
+
+def build_2026_planning_baseline(projects_df, store_df, expenses_df, engineers_current):
+    """
+    Construye una base 2026 independiente del año seleccionado en el dashboard.
+    Ventas/utilidad: anualiza el último periodo disponible de 2026.
+    Gastos: anualiza SOLO meses administrativos realmente disponibles.
+    """
+    months_2026 = ytd_months_for_selected_year(2026, projects_df, store_df)
+    months_2026 = [m for m in months_2026 if 1 <= int(m) <= 12]
+    sales_month_count = max(len(months_2026), 1)
+
+    p26 = projects_df[
+        (projects_df["Año"] == 2026) &
+        (projects_df["Mes_Num"].isin(months_2026))
+    ].copy() if projects_df is not None and not projects_df.empty else pd.DataFrame()
+
+    s26 = store_df[
+        (store_df["Año"] == 2026) &
+        (store_df["Mes_Num"].isin(months_2026))
+    ].copy() if store_df is not None and not store_df.empty else pd.DataFrame()
+
+    p_sales = float(p26["Ventas_MXN"].sum()) if not p26.empty else 0.0
+    s_sales = float(s26["Ventas_MXN"].sum()) if not s26.empty else 0.0
+    p_util = float(p26["Utilidad_Bruta_MXN"].sum()) if not p26.empty else 0.0
+    s_util = float(s26["Utilidad_Bruta_MXN"].sum()) if not s26.empty else 0.0
+
+    p_forecast = p_sales / sales_month_count * 12
+    s_forecast = s_sales / sales_month_count * 12
+    p_util_forecast = p_util / sales_month_count * 12
+    s_util_forecast = s_util / sales_month_count * 12
+
+    p_margin = p_util / p_sales * 100 if p_sales else 0.0
+    s_margin = s_util / s_sales * 100 if s_sales else 0.0
+
+    def known_expense_annualized(unit):
+        if expenses_df is None or expenses_df.empty:
+            return 0.0, 0
+
+        value_col = "Gasto_Proyectos" if unit == "Proyectos" else "Gasto_Tienda"
+        flag_col = "Disponible_Proyectos" if unit == "Proyectos" else "Disponible_Tienda"
+
+        temp = expenses_df[
+            (expenses_df["Año"] == 2026) &
+            (expenses_df[flag_col] == True)
+        ].copy()
+
+        if temp.empty:
+            return 0.0, 0
+
+        vals = pd.to_numeric(temp[value_col], errors="coerce").dropna()
+        if vals.empty:
+            return 0.0, 0
+
+        return float(vals.mean() * 12), int(len(vals))
+
+    p_expense_forecast, p_expense_months = known_expense_annualized("Proyectos")
+    s_expense_forecast, s_expense_months = known_expense_annualized("Tienda")
+
+    total_forecast = p_forecast + s_forecast
+    total_util_forecast = p_util_forecast + s_util_forecast
+    total_expense_forecast = p_expense_forecast + s_expense_forecast
+
+    actual_2024 = 0.0
+    actual_2025 = 0.0
+    for year in [2024, 2025]:
+        p = projects_df.loc[projects_df["Año"] == year, "Ventas_MXN"].sum() if projects_df is not None and not projects_df.empty else 0
+        s = store_df.loc[store_df["Año"] == year, "Ventas_MXN"].sum() if store_df is not None and not store_df.empty else 0
+        if year == 2024:
+            actual_2024 = float(p + s)
+        else:
+            actual_2025 = float(p + s)
+
+    return {
+        "months_2026": months_2026,
+        "sales_month_count": sales_month_count,
+        "project_forecast": p_forecast,
+        "store_forecast": s_forecast,
+        "total_forecast": total_forecast,
+        "project_margin": p_margin,
+        "store_margin": s_margin,
+        "project_expense_forecast": p_expense_forecast,
+        "store_expense_forecast": s_expense_forecast,
+        "total_expense_forecast": total_expense_forecast,
+        "expense_months_projects": p_expense_months,
+        "expense_months_store": s_expense_months,
+        "actual_2024": actual_2024,
+        "actual_2025": actual_2025,
+        "engineers_current": max(int(engineers_current), 1),
+        "is_actual_2026": sales_month_count >= 12,
+    }
+
+
+@st.fragment
+def render_planning_2027(projects_df, store_df, expenses_df, engineers_current, display_mode):
+    """
+    Planeación 2027:
+    Dirección define crecimiento y el dashboard lo traduce a metas operativas.
+    """
+    base = build_2026_planning_baseline(
+        projects_df, store_df, expenses_df, engineers_current
+    )
+
+    st.markdown(
+        """
+        <div class="plan27-hero">
+            <div class="plan27-kicker">Planeación corporativa 2027</div>
+            <div class="plan27-title">De una instrucción directiva a metas operativas</div>
+            <div class="plan27-sub">
+                Define cuánto debe crecer INTEREY y el dashboard traduce ese objetivo a ventas,
+                metas por unidad, carga por ingeniero, rentabilidad y capacidad requerida.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    base_label_forecast = "Cierre real 2026" if base["is_actual_2026"] else "Forecast 2026"
+    base_source = st.segmented_control(
+        "Base para construir 2027",
+        options=[base_label_forecast, "Meta 2026"],
+        default=base_label_forecast,
+        selection_mode="single",
+        required=True,
+        key="plan27_base_source",
+        width="stretch",
+    )
+
+    c1, c2 = st.columns([1.4, .8])
+    with c1:
+        growth_pct = st.slider(
+            "Crecimiento objetivo 2027",
+            min_value=0,
+            max_value=50,
+            value=20,
+            step=1,
+            key="plan27_growth_pct",
+            help="Ejemplo: 20% significa que la meta 2027 será 20% superior a la base 2026 seleccionada."
+        )
+    with c2:
+        engineers_2027 = st.number_input(
+            "Ingenieros Proyectos 2027",
+            min_value=1,
+            max_value=20,
+            value=max(int(engineers_current), 1),
+            step=1,
+            key="plan27_engineers"
+        )
+
+    if base_source == "Meta 2026":
+        base_project = float(PROJECT_TARGETS[2026]) * 12 * int(engineers_current)
+        base_store = float(STORE_TARGETS[2026]) * 12
+        base_total = base_project + base_store
+        base_name = "Meta 2026"
+    else:
+        base_project = base["project_forecast"]
+        base_store = base["store_forecast"]
+        base_total = base["total_forecast"]
+        base_name = base_label_forecast
+
+    growth_factor = 1 + growth_pct / 100
+    target_project_2027 = base_project * growth_factor
+    target_store_2027 = base_store * growth_factor
+    target_total_2027 = target_project_2027 + target_store_2027
+
+    monthly_total_2027 = target_total_2027 / 12
+    monthly_project_2027 = target_project_2027 / 12
+    monthly_store_2027 = target_store_2027 / 12
+    monthly_per_engineer = monthly_project_2027 / max(int(engineers_2027), 1)
+
+    current_monthly_per_engineer = (
+        base["project_forecast"] / 12 / max(int(engineers_current), 1)
+        if base["project_forecast"] else 0
+    )
+    productivity_ratio = (
+        monthly_per_engineer / current_monthly_per_engineer
+        if current_monthly_per_engineer else 0
+    )
+    productivity_change = (productivity_ratio - 1) * 100 if productivity_ratio else 0
+
+    equivalent_engineers = (
+        math.ceil(monthly_project_2027 / current_monthly_per_engineer)
+        if current_monthly_per_engineer > 0 else int(engineers_2027)
+    )
+
+    if productivity_ratio <= 1.05:
+        capacity_class = "good"
+        capacity_label = "Capacidad sostenible"
+        capacity_text = "La meta por ingeniero queda cerca del ritmo 2026."
+    elif productivity_ratio <= 1.20:
+        capacity_class = "warn"
+        capacity_label = "Meta exigente"
+        capacity_text = "Requiere elevar productividad comercial o reforzar capacidad."
+    else:
+        capacity_class = "bad"
+        capacity_label = "Meta agresiva"
+        capacity_text = "La carga individual supera ampliamente el ritmo 2026."
+
+    # Supuestos financieros editables.
+    with st.expander("⚙️ Supuestos financieros 2027", expanded=(display_mode == "Análisis")):
+        f1, f2, f3 = st.columns(3)
+        with f1:
+            margin_projects = st.number_input(
+                "Margen bruto Proyectos %",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(round(base["project_margin"], 1)),
+                step=0.5,
+                key="plan27_margin_projects"
+            )
+        with f2:
+            margin_store = st.number_input(
+                "Margen bruto Tienda %",
+                min_value=0.0,
+                max_value=100.0,
+                value=float(round(base["store_margin"], 1)),
+                step=0.5,
+                key="plan27_margin_store"
+            )
+        with f3:
+            expense_growth = st.number_input(
+                "Ajuste gastos 2027 %",
+                min_value=-20.0,
+                max_value=50.0,
+                value=0.0,
+                step=1.0,
+                key="plan27_expense_growth",
+                help="0% mantiene el nivel anualizado 2026; ajústalo según presupuesto."
+            )
+
+    gross_profit_2027 = (
+        target_project_2027 * margin_projects / 100
+        + target_store_2027 * margin_store / 100
+    )
+    expenses_2027 = base["total_expense_forecast"] * (1 + expense_growth / 100)
+    net_profit_2027 = gross_profit_2027 - expenses_2027
+    net_margin_2027 = net_profit_2027 / target_total_2027 * 100 if target_total_2027 else 0
+
+    net_class = "good" if net_profit_2027 > 0 else "bad"
+
+    # PUM: la instrucción ya traducida.
+    command_html = f"""
+    <div class="plan27-command">
+        <div class="plan27-command-main">
+            <div class="plan27-command-label">Instrucción directiva</div>
+            <div class="plan27-command-value">“Crecer {growth_pct}% en 2027”</div>
+            <div class="plan27-command-text">
+                Base utilizada: {base_name} · {fmt_money(base_total)}.
+                Incremento requerido: {fmt_money(target_total_2027 - base_total)}.
+            </div>
+        </div>
+        <div class="plan27-command-cell">
+            <div class="plan27-command-label">Meta 2027</div>
+            <div class="plan27-command-value">{fmt_money(target_total_2027)}</div>
+            <div class="plan27-command-text">Ventas consolidadas anuales</div>
+        </div>
+        <div class="plan27-command-cell">
+            <div class="plan27-command-label">Meta mensual</div>
+            <div class="plan27-command-value">{fmt_money(monthly_total_2027)}</div>
+            <div class="plan27-command-text">Promedio requerido por mes</div>
+        </div>
+        <div class="plan27-command-cell">
+            <div class="plan27-command-label">Capacidad</div>
+            <div class="plan27-command-value">{capacity_label}</div>
+            <span class="plan27-status {capacity_class}">
+                {productivity_change:+.1f}% vs ritmo por ingeniero 2026
+            </span>
+        </div>
+    </div>
+    """
+    st.html(command_html)
+
+    cards_html = f"""
+    <div class="plan27-grid">
+        <div class="plan27-card">
+            <div class="plan27-label">Proyectos · meta anual</div>
+            <div class="plan27-value">{fmt_money(target_project_2027)}</div>
+            <div class="plan27-subvalue">{fmt_money(monthly_project_2027)} mensuales</div>
+        </div>
+        <div class="plan27-card">
+            <div class="plan27-label">Tienda · meta anual</div>
+            <div class="plan27-value">{fmt_money(target_store_2027)}</div>
+            <div class="plan27-subvalue">{fmt_money(monthly_store_2027)} mensuales</div>
+        </div>
+        <div class="plan27-card {capacity_class}">
+            <div class="plan27-label">Meta mensual por ingeniero</div>
+            <div class="plan27-value">{fmt_money(monthly_per_engineer)}</div>
+            <div class="plan27-subvalue">{int(engineers_2027)} ingenieros considerados</div>
+        </div>
+        <div class="plan27-card {net_class}">
+            <div class="plan27-label">Utilidad neta estimada</div>
+            <div class="plan27-value">{fmt_money(net_profit_2027)}</div>
+            <div class="plan27-subvalue">Margen neto estimado: {net_margin_2027:,.1f}%</div>
+        </div>
+    </div>
+    """
+    st.html(cards_html)
+
+    capacity_html = f"""
+    <div class="plan27-note">
+        <b>Lectura de capacidad:</b> con {int(engineers_2027)} ingenieros, cada uno tendría que producir
+        aproximadamente <b>{fmt_money(monthly_per_engineer)} al mes</b>.
+        A productividad similar a 2026, la estructura equivalente sería de
+        <b>{equivalent_engineers} ingenieros</b>. {capacity_text}
+    </div>
+    """
+    st.html(capacity_html)
+
+    # Trayectoria 2024 -> 2027
+    history = pd.DataFrame({
+        "Periodo": ["2024 Real", "2025 Real", base_label_forecast, "2027 Plan"],
+        "Ventas": [
+            base["actual_2024"],
+            base["actual_2025"],
+            base["total_forecast"],
+            target_total_2027,
+        ]
+    })
+
+    colors = ["#CBD5E1", "#94A3B8", "#6F8FB3", "#123E70"]
+    fig = go.Figure(go.Bar(
+        x=history["Periodo"],
+        y=history["Ventas"],
+        marker=dict(color=colors),
+        text=[fmt_money(v) for v in history["Ventas"]],
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate="<b>%{x}</b><br>$%{y:,.0f}<extra></extra>"
+    ))
+    fig.update_layout(title="Trayectoria anual y plan 2027")
+    style_exec_chart(fig, height=390, money_axis=True, legend=False)
+    fig.update_xaxes(showgrid=False)
+    st.plotly_chart(fig, use_container_width=True, config=PLOT_CONFIG)
+
+    # Escenarios comparativos únicamente en Análisis.
+    if display_mode == "Análisis":
+        st.markdown('<div class="section-title">Escenarios rápidos de crecimiento</div>', unsafe_allow_html=True)
+        scenarios = []
+        for pct in [5, 10, 15, 20, 25, 30]:
+            factor = 1 + pct / 100
+            total_s = base_total * factor
+            proj_s = base_project * factor
+            per_eng_s = proj_s / 12 / max(int(engineers_2027), 1)
+            scenarios.append({
+                "Escenario": f"+{pct}%",
+                "Meta_Anual": total_s,
+                "Meta_Mensual": total_s / 12,
+                "Meta_Proyecto_Mensual": proj_s / 12,
+                "Meta_Ingeniero_Mensual": per_eng_s,
+            })
+
+        premium_simple_table(
+            pd.DataFrame(scenarios),
+            "Comparador de escenarios 2027",
+            f"Base: {base_name}. Permite comparar rápidamente qué implica cada nivel de crecimiento.",
+            columns=[
+                ("Escenario", "Crecimiento", "text"),
+                ("Meta_Anual", "Meta anual", "money"),
+                ("Meta_Mensual", "Meta mensual", "money"),
+                ("Meta_Proyecto_Mensual", "Proyectos / mes", "money"),
+                ("Meta_Ingeniero_Mensual", "Por ingeniero / mes", "money"),
+            ]
+        )
+
+    st.caption(
+        f"Base financiera: ventas 2026 con {base['sales_month_count']} meses disponibles; "
+        f"gastos Proyectos anualizados con {base['expense_months_projects']} meses cerrados y "
+        f"Tienda con {base['expense_months_store']} meses cerrados. "
+        "El plan es una herramienta de escenario, no un presupuesto aprobado."
+    )
+
+
+
 # ---------- SIDEBAR ----------
 st.sidebar.markdown("## Fuente de información")
 manual_mode = st.sidebar.checkbox(
@@ -3879,7 +4388,7 @@ def render_dashboard_body():
     """
     view_selected = st.radio(
         "Selecciona vista",
-        ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda", "Ingresos Comprometidos"],
+        ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda", "Ingresos Comprometidos", "Planeación 2027"],
         horizontal=True,
         label_visibility="collapsed",
         key="vista_ejecutiva"
@@ -4228,6 +4737,15 @@ def render_dashboard_body():
             project_gap=proj_fc.get("gap", 0),
         )
 
+    elif view_selected == "Planeación 2027":
+        render_planning_2027(
+            projects_df=projects,
+            store_df=store,
+            expenses_df=expenses,
+            engineers_current=engineers,
+            display_mode=display_mode,
+        )
+
     else:  # Tienda
         st.markdown('<div class="section-title">Unidad de negocio: Tienda</div>', unsafe_allow_html=True)
         trend_note("Esta vista muestra ventas mensuales, conciliación y clientes principales. Tienda usa Total como venta y excluye registros cancelados.")
@@ -4334,4 +4852,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v75 · PROJECT NUMBER · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v76 · PLANEACIÓN 2027 · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
