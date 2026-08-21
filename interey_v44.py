@@ -679,9 +679,10 @@ st.markdown("""
 }
 .backlog-master-table tr:last-child td{border-bottom:none;}
 .backlog-master-table tr:hover td{background:#FAFBFD;}
-.backlog-master-table .col-age{width:11%;}
-.backlog-master-table .col-client{width:24%;}
-.backlog-master-table .col-project{width:39%;}
+.backlog-master-table .col-age{width:8%;}
+.backlog-master-table .col-number{width:9%;text-align:center;}
+.backlog-master-table .col-client{width:22%;}
+.backlog-master-table .col-project{width:35%;}
 .backlog-master-table .col-days{width:10%;text-align:right;}
 .backlog-master-table .col-amount{width:16%;text-align:right;}
 .backlog-project-two-lines{
@@ -748,7 +749,7 @@ st.markdown("""
 }
 .backlog-detail-grid{
     display:grid;
-    grid-template-columns:repeat(4,minmax(0,1fr));
+    grid-template-columns:repeat(5,minmax(0,1fr));
     gap:0;
     margin-top:12px;
     border-top:1px solid #E8EDF3;
@@ -776,7 +777,7 @@ st.markdown("""
 @media(max-width:760px){
     .backlog-master-summary{display:block;}
     .backlog-master-summary-sub{text-align:left;margin-top:3px;}
-    .backlog-master-table .col-project{width:34%;}
+    .backlog-master-table .col-project{width:31%;}
     .backlog-detail-grid{grid-template-columns:1fr 1fr;}
     .backlog-detail-item:nth-child(3){border-left:none;padding-left:0;}
 }
@@ -1581,6 +1582,11 @@ def load_backlog(uploaded_file):
     df["Mes_OC"] = df["Fecha_OC"].dt.month.map(MONTHS_ES)
     df["Proyecto"] = df.get("Descripcion", "Sin descripción")
     df["Responsable"] = df.get("Promotor", "Sin responsable")
+    # El campo Id del archivo corresponde al número de proyecto.
+    if "Id" in df.columns:
+        df["Numero_Proyecto"] = pd.to_numeric(df["Id"], errors="coerce").astype("Int64")
+    else:
+        df["Numero_Proyecto"] = pd.Series([pd.NA] * len(df), dtype="Int64")
 
     def age_bucket(days):
         if days <= 30:
@@ -3250,7 +3256,7 @@ def render_backlog_detail_fragment(backlog_df):
     with f2:
         search = st.text_input(
             "Buscar",
-            placeholder="Buscar cliente, proyecto o responsable…",
+            placeholder="Buscar # proyecto, cliente, proyecto o responsable…",
             key="backlog_search_v68",
             label_visibility="collapsed",
         )
@@ -3269,6 +3275,7 @@ def render_backlog_detail_fragment(backlog_df):
     if search and search.strip():
         q = search.strip().lower()
         haystack = (
+            filtered["Numero_Proyecto"].fillna("").astype(str) + " " +
             filtered["Cliente"].fillna("").astype(str) + " " +
             filtered["Proyecto"].fillna("").astype(str) + " " +
             filtered["Responsable"].fillna("").astype(str)
@@ -3316,9 +3323,13 @@ def render_backlog_detail_fragment(backlog_df):
         days = int(row.get("Dias_Abiertos", 0))
         amount_text = fmt_money(row.get("Importe_Pendiente_MXN", 0))
 
+        numero_raw = row.get("Numero_Proyecto", pd.NA)
+        numero_text = f"#{int(numero_raw)}" if pd.notna(numero_raw) else "—"
+
         rows.append(f"""
         <tr>
             <td class="col-age"><span class="age-pill {age_class}">{age_text}</span></td>
+            <td class="col-number"><b>{numero_text}</b></td>
             <td class="col-client"><div class="backlog-client-cell">{client}</div></td>
             <td class="col-project"><div class="backlog-project-two-lines">{project}</div></td>
             <td class="col-days">{days:,}</td>
@@ -3332,6 +3343,7 @@ def render_backlog_detail_fragment(backlog_df):
             <thead>
                 <tr>
                     <th class="col-age">Aging</th>
+                    <th class="col-number"># Proyecto</th>
                     <th class="col-client">Cliente</th>
                     <th class="col-project">Proyecto</th>
                     <th class="col-days">Días</th>
@@ -3351,8 +3363,10 @@ def render_backlog_detail_fragment(backlog_df):
         project = str(row.get("Proyecto", "") or "Sin descripción").replace("\n", " ").strip()
         if len(project) > 58:
             project = project[:55] + "…"
+        numero_raw = row.get("Numero_Proyecto", pd.NA)
+        numero_text = f"#{int(numero_raw)}" if pd.notna(numero_raw) else "Sin #"
         return (
-            f"{row.get('Cliente','')} · {project} · "
+            f"{numero_text} · {row.get('Cliente','')} · {project} · "
             f"{int(row.get('Dias_Abiertos',0))} días · {fmt_money(row.get('Importe_Pendiente_MXN',0))}"
         )
 
@@ -3366,6 +3380,8 @@ def render_backlog_detail_fragment(backlog_df):
     row = filtered.loc[selected_idx]
     days = int(row.get("Dias_Abiertos", 0))
     age_text, age_class = age_visual(days)
+    numero_raw = row.get("Numero_Proyecto", pd.NA)
+    numero_text = f"#{int(numero_raw)}" if pd.notna(numero_raw) else "Sin número"
     client = html_lib.escape(str(row.get("Cliente", "") or "Sin cliente"))
     project = html_lib.escape(str(row.get("Proyecto", "") or "Sin descripción"))
     responsible = html_lib.escape(str(row.get("Responsable", "") or "Sin responsable"))
@@ -3379,6 +3395,10 @@ def render_backlog_detail_fragment(backlog_df):
         <div class="backlog-detail-title">{client}</div>
         <div class="backlog-detail-project">{project}</div>
         <div class="backlog-detail-grid">
+            <div class="backlog-detail-item">
+                <div class="backlog-detail-label"># Proyecto</div>
+                <div class="backlog-detail-value">{numero_text}</div>
+            </div>
             <div class="backlog-detail-item">
                 <div class="backlog-detail-label">Responsable</div>
                 <div class="backlog-detail-value">{responsible}</div>
@@ -4314,5 +4334,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v74 EXECUTIVE DIRECTION · CHART RESTORED · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
-
+st.caption("Versión v75 · PROJECT NUMBER · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
