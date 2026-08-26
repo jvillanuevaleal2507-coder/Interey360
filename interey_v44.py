@@ -4384,12 +4384,12 @@ radar_interey(consol_fc, proj_fc, store_fc)
 @st.fragment
 def render_dashboard_body():
     """
-    Navegación principal aislada. Cambiar Resumen/Consolidado/Proyectos/Tienda/Backlog
+    Navegación principal aislada. Cambiar Resumen/Proyectos/Tienda/Backlog/Planeación
     vuelve a ejecutar únicamente el cuerpo del dashboard; header, Radar y Pulso permanecen estables.
     """
     view_selected = st.radio(
         "Selecciona vista",
-        ["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda", "Ingresos Comprometidos", "Planeación 2027"],
+        ["Resumen Ejecutivo", "Proyectos", "Tienda", "Ingresos Comprometidos", "Planeación 2027"],
         horizontal=True,
         label_visibility="collapsed",
         key="vista_ejecutiva"
@@ -4408,8 +4408,6 @@ def render_dashboard_body():
     )
 
     if view_selected == "Resumen Ejecutivo":
-        render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda", compact=(display_mode == "Dirección"))
-    elif view_selected == "Consolidado":
         render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda", compact=(display_mode == "Dirección"))
     elif view_selected == "Proyectos":
         render_dynamic_executive_view("Proyectos", proj_fc, f"{engineers} ing. × {fmt_money(project_monthly_target)} × 12", compact=(display_mode == "Dirección"))
@@ -4434,89 +4432,20 @@ def render_dashboard_body():
 
         if display_mode == "Análisis":
             render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
-            render_executive_summary(consol_fc, proj_fc, store_fc, show_table=True)
+            monthly_summary_table(
+                combined_base,
+                "Resumen mensual de ventas consolidadas (MXN)",
+                "Ventas_MXN"
+            )
+            trend_note(
+                "Análisis corporativo: el detalle mensual se concentra aquí para evitar repetir "
+                "los mismos resultados en una segunda vista."
+            )
         else:
-            trend_note("Vista Dirección: Radar, seis KPIs esenciales, cobertura del backlog y trayectoria comercial. El detalle operativo permanece en Análisis.")
-
-    elif view_selected == "Consolidado":
-        st.markdown('<div class="section-title">Resultado corporativo</div>', unsafe_allow_html=True)
-        cumplimiento = float(consol_fc["cumplimiento"] or 0)
-        forecast = float(consol_fc["forecast_ventas"] or 0)
-        meta = float(consol_fc["meta_anual"] or 0)
-        gap = float(consol_fc["gap"] or 0)
-        marker_pct = max(0, min(cumplimiento / 150 * 100, 100))
-        progress_pct = max(0, min(cumplimiento / 150 * 100, 100))
-        if cumplimiento >= 100:
-            bullet_state = "good"
-            bullet_label = "En línea / arriba de meta"
-        elif cumplimiento >= 90:
-            bullet_state = "warn"
-            bullet_label = "Seguimiento cercano"
-        else:
-            bullet_state = "bad"
-            bullet_label = "Riesgo alto"
-
-        bullet_html = f"""
-        <div class="bullet-card">
-            <div class="bullet-card-head">
-                <div>
-                    <div class="bullet-title">Cumplimiento proyectado vs meta consolidada</div>
-                    <div class="bullet-sub">Lectura ejecutiva de avance proyectado al cierre contra la meta anual consolidada.</div>
-                </div>
-                <div class="bullet-value-block">
-                    <div class="bullet-value">{cumplimiento:,.1f}%</div>
-                    <span class="bullet-status {bullet_state}">{bullet_label}</span>
-                </div>
-            </div>
-
-            <div class="bullet-track">
-                <div class="bullet-zone-red"></div>
-                <div class="bullet-zone-amber"></div>
-                <div class="bullet-zone-green"></div>
-                <div class="bullet-progress" style="width:{progress_pct:.2f}%"></div>
-                <div class="bullet-marker" style="left:calc({marker_pct:.2f}% - 1.5px);"></div>
-            </div>
-
-            <div class="bullet-scale">
-                <span>0%</span><span>90%</span><span>100%</span><span>150%</span>
-            </div>
-
-            <div class="bullet-kpis">
-                <div class="bullet-mini">
-                    <div class="bullet-mini-label">Forecast ventas</div>
-                    <div class="bullet-mini-value">{fmt_money(forecast)}</div>
-                    <div class="bullet-mini-sub">Proyección de cierre anual</div>
-                </div>
-                <div class="bullet-mini">
-                    <div class="bullet-mini-label">Meta consolidada</div>
-                    <div class="bullet-mini-value">{fmt_money(meta)}</div>
-                    <div class="bullet-mini-sub">Objetivo anual corporativo</div>
-                </div>
-                <div class="bullet-mini">
-                    <div class="bullet-mini-label">Brecha proyectada</div>
-                    <div class="bullet-mini-value">{fmt_money(abs(gap))}</div>
-                    <div class="bullet-mini-sub">{'Excedente proyectado' if gap >= 0 else 'Faltante proyectado'}</div>
-                </div>
-            </div>
-        </div>
-        """
-        # Render directo de HTML para evitar que Markdown interprete
-        # la sangría interna del bullet chart como bloque de código.
-        st.html(bullet_html)
-        trend_note("La utilidad neta ya se resume en las tarjetas superiores; la vista Consolidado conserva únicamente indicadores y tendencias que aportan una lectura corporativa.")
-
-        st.markdown('<div class="section-title">Evolución mensual consolidada</div>', unsafe_allow_html=True)
-        monthly_chart(
-            combined_base,
-            "Ventas mensuales consolidadas",
-            "Ventas_MXN",
-            key="monthly_consolidado_v56",
-            detail_label="Consolidado",
-            target_map=consol_target_map
-        )
-        if display_mode == "Análisis":
-            monthly_summary_table(combined_base, "Resumen mensual de ventas consolidadas (MXN)", "Ventas_MXN")
-
+            trend_note(
+                "Vista Dirección: Radar, seis KPIs esenciales, cobertura del backlog y trayectoria "
+                "comercial consolidada. El detalle mensual permanece en Análisis."
+            )
 
     elif view_selected == "Proyectos":
         st.markdown('<div class="section-title">Unidad de negocio: Proyectos</div>', unsafe_allow_html=True)
@@ -4853,4 +4782,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v77 · PLANEACIÓN 2027 · FIX · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v78 · RESUMEN CORPORATIVO UNIFICADO · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
