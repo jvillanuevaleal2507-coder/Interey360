@@ -168,7 +168,6 @@ jobs:
           +st.caption("Versión v78 · RESUMEN CORPORATIVO UNIFICADO · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
           PATCH
 
-          sed -i 's/^          //' /tmp/v78.patch
           git apply --check /tmp/v78.patch
           git apply /tmp/v78.patch
           python -m py_compile interey_v44.py
