@@ -1,0 +1,132 @@
+name: Apply dashboard v78 unification
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-v78:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v78 changes safely
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('interey_v44.py')
+          code = path.read_text(encoding='utf-8')
+
+          # Guard: only transform the known v77 production state.
+          if 'Versión v78 · RESUMEN CORPORATIVO UNIFICADO' in code:
+              print('v78 already applied; no changes needed.')
+              raise SystemExit(0)
+
+          if 'Versión v77 · PLANEACIÓN 2027 · FIX' not in code:
+              raise SystemExit('Unexpected production version. Refusing to patch.')
+
+          old_nav = '["Resumen Ejecutivo", "Consolidado", "Proyectos", "Tienda", "Ingresos Comprometidos", "Planeación 2027"]'
+          new_nav = '["Resumen Ejecutivo", "Proyectos", "Tienda", "Ingresos Comprometidos", "Planeación 2027"]'
+          if old_nav not in code:
+              raise SystemExit('Expected navigation block not found.')
+          code = code.replace(old_nav, new_nav, 1)
+
+          old_kpi_branch = '''    if view_selected == "Resumen Ejecutivo":
+              render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda", compact=(display_mode == "Dirección"))
+          elif view_selected == "Consolidado":
+              render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda", compact=(display_mode == "Dirección"))
+          elif view_selected == "Proyectos":
+          '''
+          new_kpi_branch = '''    if view_selected == "Resumen Ejecutivo":
+              render_dynamic_executive_view("Consolidado", consol_fc, "Proyectos + Tienda", compact=(display_mode == "Dirección"))
+          elif view_selected == "Proyectos":
+          '''
+          if old_kpi_branch not in code:
+              raise SystemExit('Expected duplicated KPI branch not found.')
+          code = code.replace(old_kpi_branch, new_kpi_branch, 1)
+
+          start_marker = '''        if display_mode == "Análisis":
+                  render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
+                  render_executive_summary(consol_fc, proj_fc, store_fc, show_table=True)
+              else:
+                  trend_note("Vista Dirección: Radar, seis KPIs esenciales, cobertura del backlog y trayectoria comercial. El detalle operativo permanece en Análisis.")
+
+              elif view_selected == "Consolidado":
+          '''
+          end_marker = '''    elif view_selected == "Proyectos":
+          '''
+
+          start = code.find(start_marker)
+          if start == -1:
+              raise SystemExit('Expected Resumen/Consolidado start block not found.')
+          end = code.find(end_marker, start)
+          if end == -1:
+              raise SystemExit('Expected Proyectos branch not found.')
+
+          replacement = '''        if display_mode == "Análisis":
+                  render_executive_pulse(combined_base, selected_year, months_ytd, consol_fc)
+                  monthly_summary_table(
+                      combined_base,
+                      "Resumen mensual de ventas consolidadas (MXN)",
+                      "Ventas_MXN"
+                  )
+                  trend_note(
+                      "Análisis corporativo: el detalle mensual se concentra aquí para evitar repetir "
+                      "los mismos resultados en una segunda vista."
+                  )
+              else:
+                  trend_note(
+                      "Vista Dirección: Radar, seis KPIs esenciales, cobertura del backlog y trayectoria "
+                      "comercial consolidada. El detalle mensual permanece en Análisis."
+                  )
+
+          '''
+          code = code[:start] + replacement + code[end:]
+
+          code = code.replace(
+              'Navegación principal aislada. Cambiar Resumen/Consolidado/Proyectos/Tienda/Backlog',
+              'Navegación principal aislada. Cambiar Resumen/Proyectos/Tienda/Backlog/Planeación'
+          )
+          code = code.replace('Versión v77 · PLANEACIÓN 2027 · FIX', 'Versión v78 · RESUMEN CORPORATIVO UNIFICADO')
+          code = code.replace('Versión v77', 'Versión v78')
+
+          # Safety checks before writing.
+          compile(code, str(path), 'exec')
+          checks = {
+              'Consolidado outside navigation': '"Resumen Ejecutivo", "Consolidado"' not in code,
+              'No standalone Consolidado branch': 'elif view_selected == "Consolidado":' not in code,
+              'No duplicated executive summary': '\n            render_executive_summary(consol_fc, proj_fc, store_fc, show_table=True)' not in code,
+              'Monthly analysis retained': 'Resumen mensual de ventas consolidadas (MXN)' in code,
+              'Planning retained': '"Planeación 2027"' in code,
+              'Projects retained': 'elif view_selected == "Proyectos":' in code,
+              'Store retained': 'elif view_selected == "Tienda":' in code,
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          if failed:
+              raise SystemExit('Validation failed: ' + ', '.join(failed))
+
+          path.write_text(code, encoding='utf-8')
+          print('v78 patch applied and syntax validated.')
+          PY
+
+      - name: Validate and commit
+        shell: bash
+        run: |
+          python -m py_compile interey_v44.py
+          if git diff --quiet -- interey_v44.py; then
+            echo "No dashboard changes to commit."
+            exit 0
+          fi
+          git config user.name "INTEREY Dashboard Automation"
+          git config user.email "actions@github.com"
+          git add interey_v44.py
+          git commit -m "Unifica Resumen Ejecutivo y Consolidado"
+          git push origin main
