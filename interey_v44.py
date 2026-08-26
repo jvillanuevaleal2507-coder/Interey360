@@ -1338,7 +1338,7 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 
 .backlog-cover-strip{
     display:grid;
-    grid-template-columns:1.2fr repeat(4,minmax(0,.85fr));
+    grid-template-columns:1.35fr repeat(5,minmax(0,.78fr));
     align-items:stretch;
     background:#FFFFFF;
     border:1px solid #DDE5EE;
@@ -2998,58 +2998,69 @@ def render_dynamic_executive_view(view_name, fc, monthly_target_note="", compact
 
 
 
-def render_backlog_coverage_strip(backlog_df, proj_fc):
-    """Lectura compacta de trabajo ganado vs brecha de Proyectos."""
+def render_backlog_coverage_strip(backlog_df, consol_fc, selected_year):
+    """Ruta corporativa de cierre: ventas realizadas + backlog vs forecast y meta anual."""
     if backlog_df is None or backlog_df.empty:
         return
 
     total = float(backlog_df["Importe_Pendiente_MXN"].sum())
-    healthy = float(backlog_df.loc[backlog_df["Dias_Abiertos"] <= 90, "Importe_Pendiente_MXN"].sum())
-    shortfall = max(-float(proj_fc.get("gap",0) or 0), 0)
+    ventas_ytd = float(consol_fc.get("ventas_ytd", 0) or 0)
+    forecast = float(consol_fc.get("forecast_ventas", 0) or 0)
+    meta = float(consol_fc.get("meta_anual", 0) or 0)
 
-    coverage = (total / shortfall * 100) if shortfall else 100.0
-    healthy_coverage = (healthy / shortfall * 100) if shortfall else 100.0
-    remaining = shortfall - total if shortfall else 0.0
+    real_plus_backlog = ventas_ytd + total
+    pending_to_forecast = max(forecast - ventas_ytd, 0)
+    pending_to_meta = max(meta - ventas_ytd, 0)
+    gap_after_backlog_forecast = max(forecast - real_plus_backlog, 0)
+    gap_after_backlog_meta = max(meta - real_plus_backlog, 0)
 
-    cov_class = "good" if coverage >= 100 else ("warn" if coverage >= 85 else "bad")
-    healthy_class = "good" if healthy_coverage >= 100 else ("warn" if healthy_coverage >= 70 else "bad")
+    coverage_forecast = (total / pending_to_forecast * 100) if pending_to_forecast else 100.0
+    coverage_meta = (total / pending_to_meta * 100) if pending_to_meta else 100.0
+
+    real_backlog_class = "good" if real_plus_backlog >= forecast else "warn"
+    forecast_class = "good" if gap_after_backlog_forecast <= 0 else "bad"
+    meta_class = "good" if gap_after_backlog_meta <= 0 else "bad"
 
     html = f"""
     <div class="backlog-cover-strip">
         <div class="backlog-cover-main">
-            <div class="backlog-cover-kicker">Trabajo ganado</div>
-            <div class="backlog-cover-title">Backlog vs brecha proyectada de Proyectos</div>
-            <div class="backlog-cover-sub">Cobertura potencial sujeta a convertir OC a facturación dentro del año.</div>
+            <div class="backlog-cover-kicker">Ruta de cierre {selected_year}</div>
+            <div class="backlog-cover-title">Trabajo realizado + backlog comprometido</div>
+            <div class="backlog-cover-sub">El backlog no se suma al forecast: muestra qué parte de la venta pendiente ya tiene OC.</div>
         </div>
         <div class="backlog-cover-cell">
-            <div class="backlog-cover-kicker">Brecha</div>
-            <div class="backlog-cover-value">{fmt_money_compact(shortfall)}</div>
+            <div class="backlog-cover-kicker">Ventas realizadas</div>
+            <div class="backlog-cover-value">{fmt_money_compact(ventas_ytd)}</div>
         </div>
         <div class="backlog-cover-cell">
             <div class="backlog-cover-kicker">Backlog</div>
             <div class="backlog-cover-value">{fmt_money_compact(total)}</div>
         </div>
         <div class="backlog-cover-cell">
-            <div class="backlog-cover-kicker">Cobertura total</div>
-            <div class="backlog-cover-value {cov_class}">{coverage:,.1f}%</div>
+            <div class="backlog-cover-kicker">Real + backlog</div>
+            <div class="backlog-cover-value {real_backlog_class}">{fmt_money_compact(real_plus_backlog)}</div>
         </div>
         <div class="backlog-cover-cell">
-            <div class="backlog-cover-kicker">Cobertura ≤90 días</div>
-            <div class="backlog-cover-value {healthy_class}">{healthy_coverage:,.1f}%</div>
-            <div class="backlog-cover-sub">{'Brecha cubierta' if remaining <= 0 else 'Aún faltan ' + fmt_money_compact(max(remaining,0))}</div>
+            <div class="backlog-cover-kicker">Falta p/ forecast</div>
+            <div class="backlog-cover-value {forecast_class}">{fmt_money_compact(gap_after_backlog_forecast)}</div>
+            <div class="backlog-cover-sub">Backlog cubre {coverage_forecast:,.1f}% del pendiente</div>
+        </div>
+        <div class="backlog-cover-cell">
+            <div class="backlog-cover-kicker">Falta p/ meta</div>
+            <div class="backlog-cover-value {meta_class}">{fmt_money_compact(gap_after_backlog_meta)}</div>
+            <div class="backlog-cover-sub">Backlog cubre {coverage_meta:,.1f}% del pendiente</div>
         </div>
     </div>
     """
     st.html(html)
 
-
-def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
+def render_backlog_view(backlog_df, annual_project_target, project_gap=None, project_sales_ytd=None, project_forecast=None):
     """
-    Backlog Ejecutivo 2.0.
+    Backlog Ejecutivo 3.0.
 
-    Además de antigüedad y concentración, conecta el ingreso comprometido
-    con la brecha proyectada de Proyectos para responder:
-    ¿el trabajo ya ganado alcanza para cubrir la meta o todavía hay que vender más?
+    Conecta el ingreso comprometido con la ruta real de cierre de Proyectos:
+    cuánto ya se facturó, cuánto está comprometido y cuánto falta todavía
+    para sostener el forecast y para alcanzar la meta anual.
     """
     st.markdown('<div class="section-title">📋 Backlog Ejecutivo</div>', unsafe_allow_html=True)
     trend_note(
@@ -3082,16 +3093,24 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
 
     annual_coverage_pct = (total / annual_project_target * 100) if annual_project_target else 0
 
-    # Brecha proyectada = forecast - meta. Si es negativa, existe faltante.
     try:
-        project_gap = float(project_gap) if project_gap is not None else None
+        project_sales_ytd = float(project_sales_ytd or 0)
     except Exception:
-        project_gap = None
+        project_sales_ytd = 0.0
+    try:
+        project_forecast = float(project_forecast or 0)
+    except Exception:
+        project_forecast = 0.0
 
-    project_shortfall = max(-project_gap, 0) if project_gap is not None else 0
-    coverage_gap_pct = (total / project_shortfall * 100) if project_shortfall else 0
-    healthy_coverage_pct = (healthy_amount / project_shortfall * 100) if project_shortfall else 0
-    remaining_after_backlog = project_shortfall - total if project_shortfall else 0
+    real_plus_backlog = project_sales_ytd + total
+    pending_to_forecast = max(project_forecast - project_sales_ytd, 0)
+    pending_to_meta = max(float(annual_project_target or 0) - project_sales_ytd, 0)
+    gap_after_backlog_forecast = max(project_forecast - real_plus_backlog, 0)
+    gap_after_backlog_meta = max(float(annual_project_target or 0) - real_plus_backlog, 0)
+
+    coverage_forecast_pct = (total / pending_to_forecast * 100) if pending_to_forecast else 100.0
+    coverage_meta_pct = (total / pending_to_meta * 100) if pending_to_meta else 100.0
+    healthy_coverage_forecast_pct = (healthy_amount / pending_to_forecast * 100) if pending_to_forecast else 100.0
 
     client_summary = (
         backlog_df.groupby("Cliente", as_index=False)
@@ -3108,50 +3127,30 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
     top_client_amount = float(client_summary.iloc[0]["Importe"]) if not client_summary.empty else 0
     top_client_share = (top_client_amount / total * 100) if total else 0
 
-    # ---------- LECTURA DE COBERTURA ----------
-    if project_shortfall > 0:
-        if coverage_gap_pct >= 100:
-            coverage_class = "good"
-            coverage_status = "Cobertura suficiente"
-            surplus = abs(remaining_after_backlog)
-            headline = "El backlog actual tiene capacidad para cubrir la brecha proyectada de Proyectos."
-            headline_sub = (
-                f"Backlog pendiente: {fmt_money(total)} · Brecha proyectada: {fmt_money(project_shortfall)}. "
-                "La cobertura depende de convertir estas OC a facturación dentro del año."
-            )
-            action_label = "Escenario si se factura todo el backlog"
-            action_text = "La brecha quedaría cubierta y existiría un excedente potencial contra la meta."
-            action_value = f"+{fmt_money(surplus)}"
-        elif coverage_gap_pct >= 85:
-            coverage_class = "warn"
-            headline = f"El backlog actual cubre {coverage_gap_pct:,.1f}% de la brecha proyectada de Proyectos."
-            headline_sub = (
-                f"Backlog pendiente: {fmt_money(total)} · Brecha proyectada: {fmt_money(project_shortfall)}. "
-                "Estamos cerca de tener trabajo suficiente, sujeto a su facturación antes del cierre."
-            )
-            action_label = "Pendiente por generar"
-            action_text = "Incluso facturando todo el backlog actual, todavía se requiere venta adicional para cubrir la brecha."
-            action_value = fmt_money(max(remaining_after_backlog, 0))
-        else:
-            coverage_class = "bad"
-            headline = f"El backlog actual cubre {coverage_gap_pct:,.1f}% de la brecha proyectada de Proyectos."
-            headline_sub = (
-                f"Backlog pendiente: {fmt_money(total)} · Brecha proyectada: {fmt_money(project_shortfall)}. "
-                "El trabajo ganado aún no es suficiente para sostener la meta proyectada."
-            )
-            action_label = "Venta adicional requerida"
-            action_text = "Se necesita incrementar el pipeline comercial además de convertir el backlog existente."
-            action_value = fmt_money(max(remaining_after_backlog, 0))
-    else:
+    # ---------- LECTURA DE RUTA DE CIERRE ----------
+    if gap_after_backlog_forecast <= 0:
         coverage_class = "good"
-        headline = "Proyectos no presenta una brecha proyectada contra la meta anual."
+        headline = "El backlog actual alcanza para sostener el forecast de Proyectos, sujeto a facturación dentro del año."
         headline_sub = (
-            f"El backlog adicional es de {fmt_money(total)} y equivale al {annual_coverage_pct:,.1f}% "
-            "de la meta anual de Proyectos."
+            f"Ventas realizadas: {fmt_money(project_sales_ytd)} · Backlog: {fmt_money(total)} · "
+            f"Real + backlog: {fmt_money(real_plus_backlog)}. "
+            f"Aun así, para alcanzar la meta anual faltan {fmt_money(gap_after_backlog_meta)}."
         )
-        action_label = "Prioridad ejecutiva"
-        action_text = "Proteger la conversión a facturación y la rentabilidad de los proyectos comprometidos."
-        action_value = fmt_money(total)
+        action_label = "Ruta de cierre"
+        action_text = "El forecast tiene respaldo en trabajo comprometido; la prioridad adicional es cerrar la brecha contra la meta anual."
+        action_value = fmt_money(real_plus_backlog)
+    else:
+        coverage_class = "warn" if coverage_forecast_pct >= 85 else "bad"
+        headline = f"El backlog cubre {coverage_forecast_pct:,.1f}% de la venta pendiente necesaria para sostener el forecast de Proyectos."
+        headline_sub = (
+            f"Ventas realizadas: {fmt_money(project_sales_ytd)} · Backlog: {fmt_money(total)} · "
+            f"Real + backlog: {fmt_money(real_plus_backlog)}. "
+            f"Todavía faltan {fmt_money(gap_after_backlog_forecast)} para materializar el forecast y "
+            f"{fmt_money(gap_after_backlog_meta)} para alcanzar la meta anual."
+        )
+        action_label = "Venta adicional requerida"
+        action_text = "El backlog reduce la venta nueva necesaria, pero no sustituye el ritmo comercial proyectado para el cierre."
+        action_value = fmt_money(gap_after_backlog_forecast)
 
     risk_class = "bad" if risk_pct >= 35 else ("warn" if risk_pct >= 20 else "good")
     age_class = "bad" if promedio > 90 else ("warn" if promedio > 60 else "good")
@@ -3161,7 +3160,7 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
         <div class="backlog-exec-top">
             <div>
                 <div class="backlog-exec-title">📡 Radar del Backlog</div>
-                <div class="backlog-exec-kicker">Cobertura de meta · Aging · Riesgo financiero</div>
+                <div class="backlog-exec-kicker">Forecast · Meta · Aging · Riesgo financiero</div>
             </div>
             <div class="backlog-exec-status">
                 {('🔴' if risk_pct >= 35 else '🟡' if risk_pct >= 20 else '🟢')}
@@ -3177,21 +3176,21 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
 
         <div class="backlog-exec-grid">
             <div class="backlog-exec-metric {coverage_class}">
-                <div class="backlog-exec-label">Cobertura de brecha</div>
-                <div class="backlog-exec-value">{coverage_gap_pct:,.1f}%</div>
-                <div class="backlog-exec-meta">Backlog total vs brecha proyectada de Proyectos</div>
+                <div class="backlog-exec-label">Cobertura de venta pendiente a forecast</div>
+                <div class="backlog-exec-value">{coverage_forecast_pct:,.1f}%</div>
+                <div class="backlog-exec-meta">Backlog vs venta aún necesaria para sostener el forecast</div>
             </div>
 
-            <div class="backlog-exec-metric {'good' if remaining_after_backlog <= 0 else 'warn' if coverage_gap_pct >= 85 else 'bad'}">
-                <div class="backlog-exec-label">{'Excedente potencial' if remaining_after_backlog <= 0 else 'Pendiente por generar'}</div>
-                <div class="backlog-exec-value">{fmt_money_compact(abs(remaining_after_backlog))}</div>
-                <div class="backlog-exec-meta">Después de aplicar el backlog actual contra la brecha</div>
+            <div class="backlog-exec-metric {'good' if gap_after_backlog_forecast <= 0 else 'bad'}">
+                <div class="backlog-exec-label">Faltante para forecast</div>
+                <div class="backlog-exec-value">{fmt_money_compact(gap_after_backlog_forecast)}</div>
+                <div class="backlog-exec-meta">Después de considerar todo el backlog actual</div>
             </div>
 
-            <div class="backlog-exec-metric blue">
-                <div class="backlog-exec-label">Cobertura conservadora ≤90 días</div>
-                <div class="backlog-exec-value">{healthy_coverage_pct:,.1f}%</div>
-                <div class="backlog-exec-meta">{fmt_money(healthy_amount)} de backlog con antigüedad no crítica</div>
+            <div class="backlog-exec-metric {'good' if gap_after_backlog_meta <= 0 else 'bad'}">
+                <div class="backlog-exec-label">Cobertura de venta pendiente a meta</div>
+                <div class="backlog-exec-value">{coverage_meta_pct:,.1f}%</div>
+                <div class="backlog-exec-meta">Aun facturando el backlog, faltan {fmt_money_compact(gap_after_backlog_meta)}</div>
             </div>
 
             <div class="backlog-exec-metric {risk_class}">
@@ -3206,7 +3205,7 @@ def render_backlog_view(backlog_df, annual_project_target, project_gap=None):
                 <div class="backlog-exec-action-label">{action_label}</div>
                 <div class="backlog-exec-action-text">{action_text}</div>
                 <div class="backlog-coverage-note">
-                    El backlog es ingreso comprometido. La cobertura solo se materializa si los proyectos se facturan dentro del periodo analizado.
+                    El backlog es ingreso comprometido, no venta adicional al forecast. Solo reduce la parte del cierre que todavía debe generarse si se factura dentro del periodo.
                 </div>
             </div>
             <div class="backlog-exec-action-value">{action_value}</div>
@@ -4416,7 +4415,7 @@ def render_dashboard_body():
 
     # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
     if view_selected == "Resumen Ejecutivo":
-        render_backlog_coverage_strip(backlog, proj_fc)
+        render_backlog_coverage_strip(backlog, consol_fc, selected_year)
 
         st.markdown('<div class="section-title">Trayectoria comercial consolidada</div>', unsafe_allow_html=True)
         monthly_chart(
@@ -4665,6 +4664,8 @@ def render_dashboard_body():
             backlog,
             project_monthly_target * 12 * engineers,
             project_gap=proj_fc.get("gap", 0),
+            project_sales_ytd=proj_fc.get("ventas_ytd", 0),
+            project_forecast=proj_fc.get("forecast_ventas", 0),
         )
 
     elif view_selected == "Planeación 2027":
@@ -4782,4 +4783,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v78 · RESUMEN CORPORATIVO UNIFICADO · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v79 · RUTA DE CIERRE + BACKLOG · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
