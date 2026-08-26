@@ -1338,7 +1338,7 @@ button[data-baseweb="tab"][aria-selected="true"]{color:var(--interey-red);}
 
 .backlog-cover-strip{
     display:grid;
-    grid-template-columns:1.35fr repeat(5,minmax(0,.78fr));
+    grid-template-columns:1.35fr repeat(6,minmax(0,.72fr));
     align-items:stretch;
     background:#FFFFFF;
     border:1px solid #DDE5EE;
@@ -2947,9 +2947,10 @@ def render_dynamic_executive_view(view_name, fc, monthly_target_note="", compact
         ventas_label, utilidad_label, gastos_label = "💰 Ventas", "📊 Utilidad bruta", "🧾 Gastos"
         neta_label, forecast_label, meta_label = "🏁 Utilidad neta", "🎯 Forecast cierre", "Meta anual"
         ventas_sub = "Proyectos + Tienda"
-        utilidad_sub = f"Margen bruto: {fmt_pct(fc.get('margen_bruto_ytd',0))}"
-        gastos_sub = "Administrativos cargados"
-        meta_sub = "Objetivo corporativo"
+        utilidad_sub = f"Proyectos + Tienda · Margen bruto: {fmt_pct(fc.get('margen_bruto_ytd',0))}"
+        gastos_sub = "Proyectos + Tienda · Administrativos cargados"
+        meta_sub = "Objetivo corporativo consolidado"
+        gap_sub = f"vs meta consolidada {fmt_money(fc.get('meta_anual',0))}"
     elif view_name == "Proyectos":
         ventas_label, utilidad_label, gastos_label = "💰 Ventas proyectos", "📊 Utilidad bruta", "🧾 Gasto proyectos"
         neta_label, forecast_label, meta_label = "🏁 Utilidad neta", "🎯 Forecast cierre", "Meta anual proyectos"
@@ -2971,8 +2972,8 @@ def render_dynamic_executive_view(view_name, fc, monthly_target_note="", compact
             (ventas_label, fmt_money(fc["ventas_ytd"]), ventas_sub, ""),
             (utilidad_label, fmt_money(fc["utilidad_bruta_ytd"]), utilidad_sub, ""),
             (gastos_label, fmt_money(fc["gasto_ytd"]), gastos_sub, "gray"),
-            (neta_label, fmt_money(fc["utilidad_neta_ytd"]), f"Margen neto: {fmt_pct(fc['margen_neto_ytd'])}", net_style),
-            (forecast_label, fmt_money(fc["forecast_ventas"]), compliance_text(fc["cumplimiento"]), forecast_style),
+            (neta_label, fmt_money(fc["utilidad_neta_ytd"]), f"{'Proyectos + Tienda · ' if view_name == 'Consolidado' else ''}Margen neto: {fmt_pct(fc['margen_neto_ytd'])}", net_style),
+            (forecast_label, fmt_money(fc["forecast_ventas"]), f"{'Consolidado · ' if view_name == 'Consolidado' else ''}{compliance_text(fc['cumplimiento'])}", forecast_style),
             (gap_label, fmt_money_signed(fc["gap"]), gap_sub, gap_style),
         ]
         for col, item in zip(cols, values):
@@ -2984,8 +2985,8 @@ def render_dynamic_executive_view(view_name, fc, monthly_target_note="", compact
     with c1: st.markdown(card(ventas_label, fmt_money(fc["ventas_ytd"]), ventas_sub), unsafe_allow_html=True)
     with c2: st.markdown(card(utilidad_label, fmt_money(fc["utilidad_bruta_ytd"]), utilidad_sub), unsafe_allow_html=True)
     with c3: st.markdown(card(gastos_label, fmt_money(fc["gasto_ytd"]), gastos_sub, "gray"), unsafe_allow_html=True)
-    with c4: st.markdown(card(neta_label, fmt_money(fc["utilidad_neta_ytd"]), f"Margen neto: {fmt_pct(fc['margen_neto_ytd'])}", net_style), unsafe_allow_html=True)
-    with c5: st.markdown(card(forecast_label, fmt_money(fc["forecast_ventas"]), compliance_text(fc["cumplimiento"]), forecast_style), unsafe_allow_html=True)
+    with c4: st.markdown(card(neta_label, fmt_money(fc["utilidad_neta_ytd"]), f"{'Proyectos + Tienda · ' if view_name == 'Consolidado' else ''}Margen neto: {fmt_pct(fc['margen_neto_ytd'])}", net_style), unsafe_allow_html=True)
+    with c5: st.markdown(card(forecast_label, fmt_money(fc["forecast_ventas"]), f"{'Consolidado · ' if view_name == 'Consolidado' else ''}{compliance_text(fc['cumplimiento'])}", forecast_style), unsafe_allow_html=True)
 
     st.markdown('<div class="kpi-spacer"></div>', unsafe_allow_html=True)
     d1,d2,d3,d4,d5 = st.columns(5)
@@ -3039,6 +3040,11 @@ def render_backlog_coverage_strip(backlog_df, proj_fc, selected_year):
         <div class="backlog-cover-cell">
             <div class="backlog-cover-kicker">Real + backlog</div>
             <div class="backlog-cover-value {real_backlog_class}">{fmt_money_compact(real_plus_backlog)}</div>
+        </div>
+        <div class="backlog-cover-cell">
+            <div class="backlog-cover-kicker">Meta Proyectos</div>
+            <div class="backlog-cover-value">{fmt_money_compact(meta)}</div>
+            <div class="backlog-cover-sub">Objetivo anual vigente</div>
         </div>
         <div class="backlog-cover-cell">
             <div class="backlog-cover-kicker">Falta p/ forecast</div>
@@ -4415,8 +4421,6 @@ def render_dashboard_body():
 
     # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
     if view_selected == "Resumen Ejecutivo":
-        render_backlog_coverage_strip(backlog, proj_fc, selected_year)
-
         st.markdown('<div class="section-title">Trayectoria comercial consolidada</div>', unsafe_allow_html=True)
         monthly_chart(
             combined_base,
@@ -4442,13 +4446,15 @@ def render_dashboard_body():
             )
         else:
             trend_note(
-                "Vista Dirección: Radar, seis KPIs esenciales, cobertura del backlog y trayectoria "
-                "comercial consolidada. El detalle mensual permanece en Análisis."
+                "Vista Dirección: Radar, seis KPIs esenciales y trayectoria comercial consolidada. "
+                "La ruta de cierre del backlog se analiza dentro de Proyectos."
             )
 
     elif view_selected == "Proyectos":
         st.markdown('<div class="section-title">Unidad de negocio: Proyectos</div>', unsafe_allow_html=True)
         trend_note("Esta vista muestra ventas mensuales, conciliación y desempeño comercial del equipo. Orlando Martínez y Ana Margarita Sahagún suman en KPIs corporativos, pero no participan en el comparativo de ingenieros.")
+
+        render_backlog_coverage_strip(backlog, proj_fc, selected_year)
 
         monthly_chart(
             projects_base,
@@ -4783,4 +4789,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v80 · BACKLOG SOLO PROYECTOS · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v81 · RUTA DE CIERRE EN PROYECTOS · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
