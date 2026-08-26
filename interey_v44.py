@@ -2998,15 +2998,15 @@ def render_dynamic_executive_view(view_name, fc, monthly_target_note="", compact
 
 
 
-def render_backlog_coverage_strip(backlog_df, consol_fc, selected_year):
-    """Ruta corporativa de cierre: ventas realizadas + backlog vs forecast y meta anual."""
+def render_backlog_coverage_strip(backlog_df, proj_fc, selected_year):
+    """Ruta de cierre de Proyectos: ventas realizadas + backlog vs forecast y meta anual de Proyectos."""
     if backlog_df is None or backlog_df.empty:
         return
 
     total = float(backlog_df["Importe_Pendiente_MXN"].sum())
-    ventas_ytd = float(consol_fc.get("ventas_ytd", 0) or 0)
-    forecast = float(consol_fc.get("forecast_ventas", 0) or 0)
-    meta = float(consol_fc.get("meta_anual", 0) or 0)
+    ventas_ytd = float(proj_fc.get("ventas_ytd", 0) or 0)
+    forecast = float(proj_fc.get("forecast_ventas", 0) or 0)
+    meta = float(proj_fc.get("meta_anual", 0) or 0)
 
     real_plus_backlog = ventas_ytd + total
     pending_to_forecast = max(forecast - ventas_ytd, 0)
@@ -3024,9 +3024,9 @@ def render_backlog_coverage_strip(backlog_df, consol_fc, selected_year):
     html = f"""
     <div class="backlog-cover-strip">
         <div class="backlog-cover-main">
-            <div class="backlog-cover-kicker">Ruta de cierre {selected_year}</div>
+            <div class="backlog-cover-kicker">Ruta de cierre · Proyectos {selected_year}</div>
             <div class="backlog-cover-title">Trabajo realizado + backlog comprometido</div>
-            <div class="backlog-cover-sub">El backlog no se suma al forecast: muestra qué parte de la venta pendiente ya tiene OC.</div>
+            <div class="backlog-cover-sub">Lectura exclusiva de Proyectos. El backlog no se suma al forecast: muestra qué parte de la venta pendiente de Proyectos ya tiene OC.</div>
         </div>
         <div class="backlog-cover-cell">
             <div class="backlog-cover-kicker">Ventas realizadas</div>
@@ -4415,7 +4415,7 @@ def render_dashboard_body():
 
     # ---------- CONTENIDO DINÁMICO CONTROLADO POR LA VISTA MAESTRA ----------
     if view_selected == "Resumen Ejecutivo":
-        render_backlog_coverage_strip(backlog, consol_fc, selected_year)
+        render_backlog_coverage_strip(backlog, proj_fc, selected_year)
 
         st.markdown('<div class="section-title">Trayectoria comercial consolidada</div>', unsafe_allow_html=True)
         monthly_chart(
@@ -4783,4 +4783,4 @@ with st.expander("ℹ️ Información metodológica"):
     - Navegación y exploradores usan **fragmentos de Streamlit** para actualizar solo el bloque afectado y evitar recargas visuales completas.
     """)
 
-st.caption("Versión v79 · RUTA DE CIERRE + BACKLOG · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
+st.caption("Versión v80 · BACKLOG SOLO PROYECTOS · Navegación por fragmentos · Transición suave · Explorador mensual · Gastos validados · Backlog Ejecutivo.")
