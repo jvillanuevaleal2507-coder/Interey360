@@ -1,0 +1,118 @@
+name: Apply dashboard v80 backlog projects-only
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply-v80:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply v80 correction
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('interey_v44.py')
+          code = path.read_text(encoding='utf-8')
+
+          if 'Versión v80 · BACKLOG SOLO PROYECTOS' in code:
+              print('v80 already applied.')
+              raise SystemExit(0)
+
+          required = [
+              'def render_backlog_coverage_strip(backlog_df, consol_fc, selected_year):',
+              'render_backlog_coverage_strip(backlog, consol_fc, selected_year)',
+              'Versión v79 · RUTA DE CIERRE + BACKLOG',
+          ]
+          missing = [x for x in required if x not in code]
+          if missing:
+              raise SystemExit('Expected v79 patterns not found: ' + repr(missing))
+
+          code = code.replace(
+              'def render_backlog_coverage_strip(backlog_df, consol_fc, selected_year):',
+              'def render_backlog_coverage_strip(backlog_df, proj_fc, selected_year):',
+              1
+          )
+          code = code.replace(
+              '"""Ruta corporativa de cierre: ventas realizadas + backlog vs forecast y meta anual."""',
+              '"""Ruta de cierre de Proyectos: ventas realizadas + backlog vs forecast y meta anual de Proyectos."""',
+              1
+          )
+          code = code.replace(
+              'ventas_ytd = float(consol_fc.get("ventas_ytd", 0) or 0)',
+              'ventas_ytd = float(proj_fc.get("ventas_ytd", 0) or 0)',
+              1
+          )
+          code = code.replace(
+              'forecast = float(consol_fc.get("forecast_ventas", 0) or 0)',
+              'forecast = float(proj_fc.get("forecast_ventas", 0) or 0)',
+              1
+          )
+          code = code.replace(
+              'meta = float(consol_fc.get("meta_anual", 0) or 0)',
+              'meta = float(proj_fc.get("meta_anual", 0) or 0)',
+              1
+          )
+          code = code.replace(
+              '<div class="backlog-cover-kicker">Ruta de cierre {selected_year}</div>',
+              '<div class="backlog-cover-kicker">Ruta de cierre · Proyectos {selected_year}</div>',
+              1
+          )
+          code = code.replace(
+              '<div class="backlog-cover-sub">El backlog no se suma al forecast: muestra qué parte de la venta pendiente ya tiene OC.</div>',
+              '<div class="backlog-cover-sub">Lectura exclusiva de Proyectos. El backlog no se suma al forecast: muestra qué parte de la venta pendiente de Proyectos ya tiene OC.</div>',
+              1
+          )
+          code = code.replace(
+              'render_backlog_coverage_strip(backlog, consol_fc, selected_year)',
+              'render_backlog_coverage_strip(backlog, proj_fc, selected_year)',
+              1
+          )
+          code = code.replace(
+              'Versión v79 · RUTA DE CIERRE + BACKLOG',
+              'Versión v80 · BACKLOG SOLO PROYECTOS',
+              1
+          )
+
+          compile(code, str(path), 'exec')
+
+          checks = {
+              'call uses proj_fc': 'render_backlog_coverage_strip(backlog, proj_fc, selected_year)' in code,
+              'function uses proj_fc': 'def render_backlog_coverage_strip(backlog_df, proj_fc, selected_year):' in code,
+              'no consolidated call': 'render_backlog_coverage_strip(backlog, consol_fc, selected_year)' not in code,
+              'project sales source': 'ventas_ytd = float(proj_fc.get("ventas_ytd", 0) or 0)' in code,
+              'project forecast source': 'forecast = float(proj_fc.get("forecast_ventas", 0) or 0)' in code,
+              'project target source': 'meta = float(proj_fc.get("meta_anual", 0) or 0)' in code,
+              'clear project label': 'Ruta de cierre · Proyectos {selected_year}' in code,
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          if failed:
+              raise SystemExit('Validation failed: ' + ', '.join(failed))
+
+          path.write_text(code, encoding='utf-8')
+          print('v80 correction applied and syntax validated.')
+          PY
+
+      - name: Commit v80
+        shell: bash
+        run: |
+          python -m py_compile interey_v44.py
+          if git diff --quiet -- interey_v44.py; then
+            echo 'No dashboard changes to commit.'
+            exit 0
+          fi
+          git config user.name 'INTEREY Dashboard Automation'
+          git config user.email 'actions@github.com'
+          git add interey_v44.py
+          git commit -m 'Corrige Backlog del Resumen para usar solo Proyectos'
+          git push origin main
